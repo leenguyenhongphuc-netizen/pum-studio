@@ -107,6 +107,7 @@ function parseScript(md, n){
       const dm = t.match(/^Ngày (\d+) · (.+?)\s+—\s+(.+)$/);
       if (dm) sec = {kind:"day", id, d:Number(dm[1]), when:dm[2], title:dm[3], q:"", beats:[]};
       else if (/^(Mở tập|Cuối tập)/.test(t)) sec = {kind:"part", id, when:"", title:t, q:"", beats:[]};
+      else if (/^Chương \d+/.test(t)){ const pm = t.match(/\(([^)]*)\)\s*$/); sec = {kind:"part", ch:true, id, when:pm?pm[1]:"", title:t, q:"", beats:[]}; }
       else sec = {kind:"list", id, title:t, list:[]};
       out.sections.push(sec); beat = null; continue;
     }
@@ -195,6 +196,7 @@ function vToday(v){
     <section class="banner"><img src="img/bosang.jpg" alt=""><div class="in"><p class="k">Trước chuyến đi · bay thứ Hai 7/12</p><h1 class="disp num">Còn ${1-d} ngày</h1><p class="c">28 ngày ở Thái, 7 tập YouTube</p></div></section>
     ${nx?`<section class="sec next" style="margin-top:18px"><div><span class="k">Việc tiếp theo · ${done}/${PREP.length} xong</span><b>${esc(nx[1])}</b></div><button class="btn" data-donenext="${nx[0]}">Xong</button></section>`
       :`<section class="sec next" style="margin-top:18px"><div><span class="k">${PREP.length}/${PREP.length} xong</span><b>Đã sẵn sàng bay.</b></div></section>`}
+    ${T.test?`<section class="sec next testcard" style="margin-top:18px"><div><span class="k">Quay thử trước chuyến</span><b>${esc(T.test.tab)}: một ngày, tập quay và thu lồng tiếng</b></div><a class="btn" href="#/san-xuat/test">Mở</a></section>`:""}
     <section class="sec" style="margin-top:28px"><div class="quick">
       <a href="#/lich-trinh"><b>Lịch trình</b><span>28 ngày, 7 tập</span></a>
       <a href="#/san-xuat/1"><b>Kịch bản tập 1</b><span>Chiang Mai · ngày 1–5</span></a>
@@ -362,16 +364,18 @@ let prodTab = LS.get("prodTab","quay"); if (prodTab !== "dang") prodTab = "quay"
 function stStats(sc){ let tot=0, shot=0; sc.sections.forEach(s => (s.beats||[]).forEach(b => { tot++; if (S.beats[b.key] && S.beats[b.key].shot) shot++; })); return {tot, shot}; }
 function vProd(v, r){
   const dNow = Math.max(1, Math.min(28, tripDay()));
-  const n = Number(r.a) || dayObj(dNow).st;
-  const st = stObj(n) || stObj(1); const focus = r.b && /^d\d+$/.test(r.b) ? r.b : null;
+  const isTest = r.a === "test" && !!T.test;
+  const n = isTest ? "test" : (Number(r.a) || dayObj(dNow).st);
+  const st = isTest ? T.test : (stObj(n) || stObj(1)); const focus = r.b && /^d\d+$/.test(r.b) ? r.b : null;
   if (focus) prodTab = "quay";
   const x = S.vids["ep"+st.n] || {};
   v.innerHTML = `
-  <nav class="st-tabs" aria-label="Chọn tập">${T.stages.map(s=>`<a href="#/san-xuat/${s.n}" ${s.n===st.n?'aria-current="page"':''}>Tập ${s.n} · ${esc(s.place.split(":")[0])}</a>`).join("")}</nav>
+  <nav class="st-tabs" aria-label="Chọn tập">${T.test?`<a class="test" href="#/san-xuat/test" ${st.test?'aria-current="page"':''}>${esc(T.test.tab)}</a>`:""}${T.stages.map(s=>`<a href="#/san-xuat/${s.n}" ${s.n===st.n?'aria-current="page"':''}>Tập ${s.n} · ${esc(s.place.split(":")[0])}</a>`).join("")}</nav>
+  ${st.test?`<p class="notice small testnote">Tập quay thử trước chuyến Thái: tập cách quay, cách nói tại chỗ và cách thu lồng tiếng sau. Mỗi cảnh có thêm mục <b>Bài tập</b>; cuối ngày điền phần <b>Bài test</b> trong mục Ghi chú.</p>`:""}
   <section class="ephead">
-    <img src="${img(st.img)}" alt="">
+    ${st.test?`<img src="brand/coffee.png" alt="" class="testimg">`:`<img src="${img(st.img)}" alt="">`}
     <div>
-      <p class="eyebrowless">Tập ${st.n} · ngày ${st.days[0]}–${st.days[1]} · ${esc(st.len)} · đăng ${esc(x.postDate || st.post)}</p>
+      <p class="eyebrowless">${st.test?`Tập test · ${esc(st.when)} · ${esc(st.len)}`:`Tập ${st.n} · ngày ${st.days[0]}–${st.days[1]} · ${esc(st.len)} · đăng ${esc(x.postDate || st.post)}`}</p>
       <h1 class="disp">${esc(st.place)}</h1>
       <div id="stProg" class="muted small">Đang mở kịch bản…</div>
     </div>
@@ -408,16 +412,16 @@ function renderShoot(body, sc, focus, st){
   let cur = focus || LS.get(store, null);
   if (!keys.includes(cur)){ const t = tripDay(); const td = parts.find(p => p.kind === "day" && p.d === t); cur = td ? secKey(td) : keys[0]; }
   if (focus) LS.set(store, cur);
-  const label = s => s.kind === "day" ? `Ngày ${s.d}<small>${esc(s.when.split(" ")[1]||"")}</small>` : `${esc(s.title.replace(/\s*\(.*\)$/,""))}<small>phần dựng</small>`;
+  const label = s => { if (s.kind === "day") return `Ngày ${s.d}<small>${esc(s.when.split(" ")[1]||"")}</small>`; const t = s.title.replace(/\s*\(.*\)$/,""); if (s.ch){ const m = t.match(/^(Chương \d+)\s*·\s*(.+)$/); return m ? `${esc(m[1])}<small>${esc(m[2])}</small>` : esc(t); } return `${esc(t)}<small>phần dựng</small>`; };
   const done = s => s.beats.length && s.beats.every(b => S.beats[b.key] && S.beats[b.key].shot);
   const idx = keys.indexOf(cur), sec = parts.find(p => secKey(p) === cur);
-  const nameOf = k => { if (k === "ghichu") return "Sổ tiền và ghi chú"; const p = parts.find(x => secKey(x) === k); return p.kind === "day" ? `Ngày ${p.d} · ${p.title}` : p.title.replace(/\s*\(.*\)$/,""); };
-  let html = `<nav class="daypick" aria-label="Chọn phần">${parts.map(p => `<button data-sec="${secKey(p)}" aria-pressed="${secKey(p)===cur}" class="${done(p)?"done":""}">${label(p)}</button>`).join("")}${lists.length?`<button data-sec="ghichu" aria-pressed="${cur==="ghichu"}">Ghi chú<small>sổ tiền</small></button>`:""}</nav>`;
+  const nameOf = k => { if (k === "ghichu") return st.test ? "Bài test và ghi chú" : "Sổ tiền và ghi chú"; const p = parts.find(x => secKey(x) === k); return p.kind === "day" ? `Ngày ${p.d} · ${p.title}` : p.title.replace(/\s*\(.*\)$/,""); };
+  let html = `<nav class="daypick" aria-label="Chọn phần">${parts.map(p => `<button data-sec="${secKey(p)}" aria-pressed="${secKey(p)===cur}" class="${done(p)?"done":""}">${label(p)}</button>`).join("")}${lists.length?`<button data-sec="ghichu" aria-pressed="${cur==="ghichu"}">Ghi chú<small>${st.test?"bài test":"sổ tiền"}</small></button>`:""}</nav>`;
   if (sec){
     const n = sec.beats.filter(b=>S.beats[b.key]&&S.beats[b.key].shot).length, o = sec.kind==="day" ? dayObj(sec.d) : null;
     html += `<section class="vsec" style="border-top:0;margin-top:8px;padding-top:6px" id="${cur}">
-      <p class="vid">${sec.kind==="day"?`${esc(sec.when)}${o?` · ${esc(o.city)}`:""}`:"Phần dựng"}</p>
-      <h2 class="disp">${esc(sec.title)}</h2>
+      <p class="vid">${sec.kind==="day"?`${esc(sec.when)}${o?` · ${esc(o.city)}`:""}`:sec.ch?esc(sec.when):"Phần dựng"}</p>
+      <h2 class="disp">${esc(sec.ch ? sec.title.replace(/\s*\(.*\)$/,"") : sec.title)}</h2>
       ${sec.q?`<p class="promise">${esc(sec.q)}</p>`:""}
       <div class="row" style="margin-top:12px"><span class="tag ${n===sec.beats.length?"":"soft"}" style="margin:0">${n}/${sec.beats.length} cảnh</span>${o&&o.map?`<a class="btn small ghost" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.map)}" target="_blank" rel="noopener">Bản đồ</a>`:""}${o?`<button class="btn small ghost" data-day="${o.d}">Lịch ngày này</button>`:""}</div>
       ${idx===0?`<p class="notice small" style="font-size:14px;margin-top:16px">${inline(sc.meta["Cách đọc"])}</p>`:""}
@@ -534,12 +538,12 @@ function renderPublish(body, sc, st){
     <label class="f" style="margin-top:14px">Tên tập trên YouTube<input type="text" id="pb-title" value="${esc(x.title||"")}" placeholder="${esc(sc.meta["Tên tập"]||"")}"></label>
     ${!x.title&&sc.meta["Tên tập"]?`<button class="btn small ghost" style="margin-top:8px" data-fill="title">Dùng tên gợi ý trong kịch bản</button>`:""}
   </section>
-  <section class="pub">
+  ${st.test?"":`<section class="pub">
     <h3 class="disp">Hiệu ứng của tập</h3>
     <p class="small muted" style="margin-bottom:12px">Nền xanh cho CapCut (Xóa nền › Phông xanh). Chuyển cảnh chung và cách dùng ở Cẩm nang › Hiệu ứng.</p>
     <div class="fxrow">${fxVid(`fx/youtube/mo_tap_${st.n}.webm`)}<div><b>Mở tập ${st.n}</b>${fxLinks([["Nền xanh",`fx/youtube/mo_tap_${st.n}_nenxanh.mp4`],["Nền trong",`fx/youtube/mo_tap_${st.n}.webm`]])}</div></div>
     <ul class="fxdays">${T.days.filter(d=>d.st===st.n).map(d=>{const n=String(d.d).padStart(2,"0");return `<li><span>Thẻ ngày ${d.d}</span>${fxLinks([["Nền xanh",`fx/youtube/the_ngay/the_ngay_${n}_nenxanh.mp4`],["Nền trong",`fx/youtube/the_ngay/the_ngay_${n}.webm`]])}</li>`}).join("")}</ul>
-  </section>
+  </section>`}
   <section class="pub ${x.thumb?"ok":""}">
     <h3 class="disp">Thumbnail</h3>
     <p class="small muted" style="margin-bottom:12px">Một ảnh Pum ở giữa, tên nơi thật to, ba nhãn ngắn là ba điều có trong tập. Chọn ảnh có mặt Pum và cảnh nơi đó, không dùng ảnh người khác.</p>
