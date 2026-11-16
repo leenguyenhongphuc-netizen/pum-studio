@@ -399,12 +399,53 @@ function vProd(v, r){
     else renderShoot(body, sc, focus, st);
   });
 }
+/* ---------- đọc to (giọng tiếng Việt của máy) ---------- */
+const TTS = {
+  rates:[1, 1.25, 1.5, 0.8], cur:null, voice:null,
+  rate(){ const r = Number(LS.get("ttsRate", 1)); return this.rates.includes(r) ? r : 1; },
+  rateLabel(){ return String(this.rate()).replace(".", ",") + "x"; },
+  ok(){ return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window; },
+  pick(){
+    const vs = (speechSynthesis.getVoices() || []).filter(v => /^vi(-|_|$)/i.test(v.lang));
+    const pref = [/linh/i, /hoaimy|hoai my/i, /google/i, /female|nữ/i];
+    for (const re of pref){ const v = vs.find(x => re.test(x.name)); if (v) return v; }
+    return vs.find(v => v.localService) || vs[0] || null;
+  },
+  clean(t){ return t.replace(/\([^)]*\)/g, " ").replace(/_{2,}/g, " … ").replace(/[“”"«»]/g, "").replace(/\s+/g, " ").trim(); },
+  stop(){ try{ speechSynthesis.cancel(); }catch(e){} if (this.cur){ this.cur.classList.remove("on"); const sp = this.cur.querySelector("span"); if (sp) sp.textContent = "Nghe"; } this.cur = null; },
+  play(btn){
+    if (!this.ok()){ toast("Trình duyệt này chưa đọc được. Thử mở bằng Safari hoặc Chrome."); return; }
+    if (this.cur === btn){ this.stop(); return; }
+    this.stop();
+    const dd = btn.closest("dt").nextElementSibling; const text = this.clean(dd ? dd.textContent : ""); if (!text) return;
+    this.voice = this.voice || this.pick();
+    if (!this.voice && !this._warned){ this._warned = true; toast("Máy chưa có giọng tiếng Việt nên đọc có thể lơ lớ. iPhone: Cài đặt › Trợ năng › Nội dung được đọc › Giọng nói › Tiếng Việt."); }
+    const parts = text.split(/(?<=[.!?…])\s+/).filter(x => x.trim());
+    this.cur = btn; btn.classList.add("on"); const sp = btn.querySelector("span"); if (sp) sp.textContent = "Dừng";
+    parts.forEach((t, i) => {
+      const u = new SpeechSynthesisUtterance(t); u.lang = "vi-VN"; u.rate = this.rate(); u.pitch = 1; if (this.voice) u.voice = this.voice;
+      if (i === parts.length - 1) u.onend = () => { if (this.cur === btn) this.stop(); };
+      u.onerror = ev => { if (ev && ev.error === "interrupted" || ev.error === "canceled") return; if (this.cur === btn) this.stop(); };
+      speechSynthesis.speak(u);
+    });
+  }
+};
+if (TTS.ok()){ try{ speechSynthesis.onvoiceschanged = () => { TTS.voice = TTS.pick(); }; TTS.voice = TTS.pick(); }catch(e){} }
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-tts]"); if (b){ TTS.play(b); return; }
+  const r = e.target.closest("[data-ttsrate]"); if (!r) return;
+  const rs = TTS.rates, n = rs[(rs.indexOf(TTS.rate()) + 1) % rs.length]; LS.set("ttsRate", n);
+  document.querySelectorAll("[data-ttsrate]").forEach(x => x.textContent = TTS.rateLabel());
+  if (TTS.cur){ const c = TTS.cur; TTS.stop(); TTS.play(c); }
+});
+window.addEventListener("hashchange", () => TTS.stop());
 function refPics(v){ return v.split(" · ").map(x => { const m = x.trim().match(/^([a-z0-9_]+)\s*\((.+)\)$/); return m ? {k:m[1], cap:m[2]} : null; }).filter(Boolean); }
 function itemsHTML(items){ return `<dl class="lines">${items.map(it=>{
   if (it.k === "Bản đồ"){ const ms = it.v.split(" · ").map(x => x.split(" | ")).filter(m => m.length === 2); return `<dt>Bản đồ</dt><dd class="maps">${ms.map(([lab,q])=>`<a class="lnkbtn" style="background:var(--blush)" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q.trim())}" target="_blank" rel="noopener">${esc(lab.trim())}</a>`).join(" ")}</dd>`; }
   if (it.k === "Ảnh mẫu"){ const ps = refPics(it.v); return `<dt>Ảnh mẫu</dt><dd class="pics">${ps.map(p=>`<button type="button" class="pic" data-pic="${p.k}" data-cap="${esc(p.cap)}"><img src="${img(p.k)}" alt="${esc(p.cap)}" loading="lazy"><span>${esc(p.cap)}</span></button>`).join("")}</dd>`; }
   const lab = it.k==="Nói" ? "Nói tại chỗ" : it.k==="Nói thêm" ? "Nói thêm (nếu hứng)" : it.k==="Lồng tiếng" ? "Lồng tiếng (thu sau)" : (it.k||"·");
-  return `<dt class="${/^Nói/.test(it.k)?"k-say":""}">${esc(lab)}</dt><dd class="${it.k==="Nói thêm"?"say alt":/^Nói/.test(it.k)?"say":/^Lồng tiếng/.test(it.k)?"vo":/^Chữ trên hình/.test(it.k)?"ost":""}">${inline(it.v)}</dd>`; }).join("")}</dl>`; }
+  const tts = /^(Nói|Lồng tiếng)/.test(it.k) ? `<span class="ttsbox"><button type="button" class="tts" data-tts aria-label="Đọc to đoạn này"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg><span>Nghe</span></button><button type="button" class="ttsr" data-ttsrate aria-label="Đổi tốc độ đọc">${TTS.rateLabel()}</button></span>` : "";
+  return `<dt class="${/^Nói/.test(it.k)?"k-say":""}"><span>${esc(lab)}</span>${tts}</dt><dd class="${it.k==="Nói thêm"?"say alt":/^Nói/.test(it.k)?"say":/^Lồng tiếng/.test(it.k)?"vo":/^Chữ trên hình/.test(it.k)?"ost":""}">${inline(it.v)}</dd>`; }).join("")}</dl>`; }
 function secKey(s){ return s.kind === "day" ? "d" + s.d : s.id; }
 function renderShoot(body, sc, focus, st){
   const parts = sc.sections.filter(s => s.kind !== "list"), lists = sc.sections.filter(s => s.kind === "list");

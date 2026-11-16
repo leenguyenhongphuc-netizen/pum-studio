@@ -188,6 +188,12 @@ dd.maps{display:flex;flex-wrap:wrap;gap:8px}.testnote{margin:-14px 0 18px}
 .lines dd.say{font-size:18px;font-weight:800;padding-left:12px;border-left:4px solid var(--rose)}
 .lines dd.vo{font-size:17px;padding:8px 12px;background:var(--blush);border-radius:10px}
 .lines dt.k-say{color:var(--berry)}
+.lines dt{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.ttsbox{display:inline-flex;gap:6px}
+.tts,.ttsr{display:inline-flex;align-items:center;gap:5px;min-height:36px;padding:0 12px;border:0;border-radius:999px;background:var(--blush);color:var(--berry);font:inherit;font-size:13px;font-weight:900;cursor:pointer}
+.ttsr{min-width:52px;justify-content:center;background:var(--paper);border:1.5px solid var(--line);color:var(--muted)}
+.tts.on{background:var(--berry);color:#fff}
+@media (max-width:600px){.tts,.ttsr{min-height:40px}}
 .lines dd.ost{font-weight:800}
 @media (max-width:600px){.lines{grid-template-columns:1fr;gap:0}.lines dd{margin-bottom:10px}}
 .tools{display:grid;gap:14px;border-top:1px solid var(--line);padding-top:14px}
@@ -209,7 +215,7 @@ dd.maps{display:flex;flex-wrap:wrap;gap:8px}.testnote{margin:-14px 0 18px}
 .steps span{font-size:13px;font-weight:800;padding:3px 10px;border-radius:999px;background:var(--line);color:var(--muted)}
 .steps span.ok{background:var(--ink);color:var(--paper)}
 .notice{background:var(--blush);padding:16px 18px;font-size:15px;border-radius:14px;max-width:760px}
-.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:12px 20px;border-radius:999px;z-index:40;font-weight:800;max-width:90vw}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:12px 20px;border-radius:18px;z-index:40;font-weight:800;width:max-content;max-width:min(90vw,420px);text-align:center;line-height:1.4}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px}
 @media (max-width:760px){.grid2{grid-template-columns:1fr}}
 .swatch{display:grid;grid-template-columns:repeat(4,1fr);border-radius:16px;overflow:hidden}
@@ -409,6 +415,6 @@ details.prev{margin-top:48px;color:var(--muted)}details.prev>summary{cursor:poin
   document.addEventListener("visibilitychange", function(){ if (!document.hidden) check(); });
   setTimeout(check, 5000);
 })();
-</script><script>window.PUMV='1794860400'</script><script src="gate.js?v=1794860400"></script>
+</script><script>window.PUMV='1794864000'</script><script src="gate.js?v=1794864000"></script>
 </body>
 </html>
