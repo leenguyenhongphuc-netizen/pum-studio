@@ -380,7 +380,7 @@ function vProd(v, r){
       <div id="stProg" class="muted small">Đang mở kịch bản…</div>
     </div>
   </section>
-  <details class="about" id="about"><summary>Câu hỏi, sợi chỉ và luật bạn chọn của tập</summary><div id="epQ" class="card" style="margin-top:6px">${esc(st.line)}</div></details>
+  <details class="about" id="about"><summary>${st.test?"Câu hỏi và sợi chỉ của tập":"Câu hỏi, sợi chỉ và luật bạn chọn của tập"}</summary><div id="epQ" class="card" style="margin-top:6px">${esc(st.line)}</div></details>
   <div class="seg" role="group" aria-label="Phần" style="margin-top:14px">
     <button data-tab="quay" aria-pressed="${prodTab!=="dang"}">Quay và kịch bản</button>
     <button data-tab="dang" aria-pressed="${prodTab==="dang"}">Dựng và đăng</button>

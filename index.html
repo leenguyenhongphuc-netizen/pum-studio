@@ -358,6 +358,14 @@ details.prev{margin-top:48px;color:var(--muted)}details.prev>summary{cursor:poin
 @keyframes shk{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 @media (prefers-reduced-motion:reduce){.gate.shake .gate-in{animation:none}}
 .gate.hide{display:none}
+.topr{display:flex;align-items:center;gap:10px}
+.reload{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:0;border-radius:999px;background:var(--blush);color:var(--berry);font:inherit;font-size:13px;font-weight:900;cursor:pointer;position:relative}
+.reload.new{background:var(--berry);color:#fff}
+.reload.new::after{content:"";position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--tape)}
+.reload.spin svg{animation:rl .8s linear infinite}
+@keyframes rl{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.reload.spin svg{animation:none}}
+.rail-reload{margin-top:12px;align-self:flex-start}
 </style>
 </head>
 <body>
@@ -365,10 +373,11 @@ details.prev{margin-top:48px;color:var(--muted)}details.prev>summary{cursor:poin
   <a class="brand" href="#/hom-nay"><img src="brand/logo.png" alt="Pum"><small>Studio · Thái Lan</small></a>
   <nav class="nav" id="nav"></nav>
   <div class="foot" id="railFoot"></div>
+  <button type="button" class="reload rail-reload" data-reload aria-label="Tải lại trang"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg><span>Tải lại</span></button>
 </aside>
 <header class="topbar">
   <a class="brand" href="#/hom-nay"><img src="brand/logo.png" alt="Pum"></a>
-  <span class="sync" id="syncTop"></span>
+  <div class="topr"><span class="sync" id="syncTop"></span><button type="button" class="reload" data-reload aria-label="Tải lại trang"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg><span>Tải lại</span></button></div>
 </header>
 <main><div class="wrap" id="view"></div></main>
 <nav class="tabbar" id="tabbar" aria-label="Điều hướng"></nav>
@@ -387,6 +396,19 @@ details.prev{margin-top:48px;color:var(--muted)}details.prev>summary{cursor:poin
   <p id="gateMsg" class="gate-msg" role="status"></p>
   <p class="gate-note">Mỗi máy chỉ nhập một lần.</p>
 </form></div>
-<script>window.PUMV='1794853200'</script><script src="gate.js?v=1794853200"></script>
+<script>
+(function(){
+  function go(){ document.querySelectorAll("[data-reload]").forEach(function(b){ b.classList.add("spin"); b.disabled = true; });
+    location.replace(location.pathname + "?r=" + Date.now() + location.hash); }
+  document.addEventListener("click", function(e){ if (e.target.closest("[data-reload]")) go(); });
+  var last = 0;
+  function check(){ if (Date.now() - last < 60000) return; last = Date.now();
+    fetch(location.pathname + "?c=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
+      var m = t.match(/PUMV='(\d+)'/); if (m && window.PUMV && m[1] !== window.PUMV) document.querySelectorAll("[data-reload]").forEach(function(b){ b.classList.add("new"); var s = b.querySelector("span"); if (s) s.textContent = "Có bản mới"; b.setAttribute("aria-label", "Có bản mới, bấm để tải lại"); });
+    }).catch(function(){}); }
+  document.addEventListener("visibilitychange", function(){ if (!document.hidden) check(); });
+  setTimeout(check, 5000);
+})();
+</script><script>window.PUMV='1794856800'</script><script src="gate.js?v=1794856800"></script>
 </body>
 </html>
