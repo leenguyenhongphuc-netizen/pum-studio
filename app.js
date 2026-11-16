@@ -66,7 +66,7 @@ async function boot(){
           if (c === "settings") S.settings = Object.assign({rate:T.rate, budget:0, plans:{}}, (o.main||{}));
           else { if (c === "beats") Object.keys(o).forEach(k => { if (S.beats[k] && S.beats[k]._open) o[k] = Object.assign({}, o[k], {_open:true}); }); S[c] = o; }
           if (!snap.metadata.fromCache){ clearTimeout(timer); S.sync = "Đã đồng bộ"; }
-          render();
+          renderSoon();
         }, () => { S.sync = "Mất kết nối dữ liệu"; render(); });
       });
     } else { S.sync = "Lưu trên máy này"; render(); }
@@ -142,13 +142,19 @@ function renderShell(){
   $("#railFoot").innerHTML = `<img src="brand/hello.png" alt=""><b>Thái Lan</b> · 7/12/2026 – 3/1/2027<br>${esc(S.sync)}`;
   $("#syncTop").textContent = d < 1 ? `còn ${1-d} ngày` : (d <= 28 ? `ngày ${d}/28` : "đã về");
 }
+let lastRouteKey = null, relaxT = null, rsT = null;
+function renderSoon(){ if (rsT) return; rsT = requestAnimationFrame(() => { rsT = null; render(); }); }
 function render(){
   renderShell();
   const r = route(), v = $("#view");
+  const rk = location.hash, same = rk === lastRouteKey; lastRouteKey = rk;
+  const y = window.scrollY;
+  if (same){ v.style.minHeight = v.offsetHeight + "px"; clearTimeout(relaxT); relaxT = setTimeout(() => { v.style.minHeight = ""; }, 800); }
   const fn = {"hom-nay":vToday, "lich-trinh":vTrip, "chi-tieu":vMoney, "san-xuat":vProd, "kenh":vBrand, "hieu-ung":(v)=>vBrand(v,{k:"kenh",a:"hieu-ung"})}[r.k] || vToday;
   const active = document.activeElement && document.activeElement.id; const keepVal = active && document.activeElement.value;
   fn(v, r);
-  if (active){ const el = document.getElementById(active); if (el && el !== document.activeElement){ if (keepVal != null && "value" in el && el.dataset.keep !== "0") el.value = keepVal; el.focus(); } }
+  if (active){ const el = document.getElementById(active); if (el && el !== document.activeElement){ if (keepVal != null && "value" in el && el.dataset.keep !== "0") el.value = keepVal; el.focus({preventScroll:true}); } }
+  if (same && Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
 }
 window.addEventListener("hashchange", () => { closeSheet(); window.scrollTo(0,0); render(); });
 const postcard = (k, cap) => k ? `<figure class="post"><img src="${img(k)}" alt="${esc(cap)}"><figcaption>${esc(cap)}</figcaption></figure>` : `<figure class="post plain"><img src="brand/camera.png" alt=""></figure>`;
@@ -426,7 +432,7 @@ function renderShoot(body, sc, focus, st){
   bindBeats(body);
   body.querySelectorAll("[data-day]").forEach(b => b.onclick = () => openDay(Number(b.dataset.day)));
   body.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => { if (!b.dataset.sec) return; LS.set(store, b.dataset.sec); if (/\/d\d+$/.test(location.hash)) history.replaceState(null, "", "#/san-xuat/" + st.n); const top = b.closest(".pager"); renderShoot(body, sc, null, st); if (top){ const dp = body.querySelector(".daypick"); window.scrollTo({top: dp.getBoundingClientRect().top + scrollY - 70}); } });
-  const on = body.querySelector('.daypick [aria-pressed="true"]'); if (on) on.scrollIntoView({block:"nearest", inline:"center"});
+  const on = body.querySelector('.daypick [aria-pressed="true"]'), dpk = body.querySelector(".daypick"); if (on && dpk) dpk.scrollLeft = on.offsetLeft - dpk.clientWidth/2 + on.offsetWidth/2;
 }
 function beatHTML(b){
   const x = S.beats[b.key] || {}; const att = (x.clips||[]).length + (x.voices||[]).length;

@@ -1,6 +1,6 @@
 (function(){
 "use strict";
-const SB = "https://lpiwmdomdzebzhmxzesn.supabase.co", KEY = "sb_publishable_6H1om-emHz6RrLBy1guQfg_PfGyseKE", SALT = "6029b290453efb9020c612b70cf3c083", ITER = 310000;
+const SB = "https://lpiwmdomdzebzhmxzesn.supabase.co", KEY = "sb_publishable_6H1om-emHz6RrLBy1guQfg_PfGyseKE", SALT = "60370fbbacf66f1f564f02b04b4a86ad", ITER = 310000;
 const hex = h => new Uint8Array(h.match(/../g).map(x => parseInt(x, 16)));
 let PASS = null, AES = null;
 async function rpc(fn, args){
@@ -20,7 +20,7 @@ async function dec(buf){
 window.PUMDEC = dec;
 
 /* db giống giao diện của Claude, chạy trên Supabase */
-const listeners = {}; let pollTimer = null, polling = null, lastOk = 0;
+const listeners = {}, lastSig = {}; let pollTimer = null, polling = null, lastOk = 0;
 async function poll(){
   if (polling) return polling;
   polling = (async () => {
@@ -28,6 +28,8 @@ async function poll(){
       const rows = await rpc("pum_list", {p:PASS}) || [];
       const by = {}; rows.forEach(r => { if (!r.deleted) (by[r.col] = by[r.col] || []).push(r); });
       Object.keys(listeners).forEach(c => {
+        const sig = JSON.stringify((by[c] || []).map(r => [r.id, r.updated_at]));
+        if (lastSig[c] === sig) return; lastSig[c] = sig;
         const docs = (by[c] || []).map(r => ({id:r.id, data:() => r.data}));
         listeners[c].forEach(l => { try{ l.cb({docs, metadata:{fromCache:false}}); }catch(e){ console.error(e); } });
       });
@@ -41,7 +43,7 @@ async function poll(){
 }
 let soonT = null; const soon = () => { clearTimeout(soonT); soonT = setTimeout(poll, 400); };
 const db = Object.freeze({
-  collection: c => ({ onSnapshot(cb, err){ (listeners[c] = listeners[c] || []).push({cb, err}); soon(); return () => { listeners[c] = listeners[c].filter(x => x.cb !== cb); }; } }),
+  collection: c => ({ onSnapshot(cb, err){ (listeners[c] = listeners[c] || []).push({cb, err}); delete lastSig[c]; soon(); return () => { listeners[c] = listeners[c].filter(x => x.cb !== cb); }; } }),
   doc: path => { const [c, ...rest] = path.split("/"); const id = rest.join("/");
     return { set: async data => { await rpc("pum_put", {p:PASS, c, i:id, d:data}); soon(); },
              delete: async () => { await rpc("pum_del", {p:PASS, c, i:id}); soon(); } }; }
