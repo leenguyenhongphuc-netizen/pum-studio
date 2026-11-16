@@ -1,6 +1,6 @@
 (function(){
 "use strict";
-const SB = "https://lpiwmdomdzebzhmxzesn.supabase.co", KEY = "sb_publishable_6H1om-emHz6RrLBy1guQfg_PfGyseKE", SALT = "41e04503fa159236e1f24693abfcc4d5", ITER = 310000;
+const SB = "https://lpiwmdomdzebzhmxzesn.supabase.co", KEY = "sb_publishable_6H1om-emHz6RrLBy1guQfg_PfGyseKE", SALT = "221765954d54a31b58a4b25888996d1c", ITER = 310000;
 const hex = h => new Uint8Array(h.match(/../g).map(x => parseInt(x, 16)));
 let PASS = null, AES = null;
 async function rpc(fn, args){

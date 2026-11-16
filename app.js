@@ -258,6 +258,12 @@ function vTrip(v){
   </section>`).join("")}`;
   v.querySelectorAll("[data-day]").forEach(b => b.onclick = () => openDay(Number(b.dataset.day)));
 }
+function openPic(k, cap){
+  const sh = $("#sheet");
+  sh.innerHTML = `<button class="btn small close" id="closeSheet">Đóng</button><img class="cover" style="height:auto;max-height:70vh;object-fit:contain;background:#2b1f25" src="${img(k)}" alt="${esc(cap)}"><div class="in"><p class="lead" style="font-weight:800">${esc(cap)}</p><p class="small muted" style="margin-top:10px">Ảnh mẫu để biết chỗ đó, món đó trông ra sao, không dùng trong video.${T.credits[k]?` Ảnh: ${esc(T.credits[k])}, Wikimedia Commons.`:""}</p></div>`;
+  sh.classList.add("open"); $("#sheetBg").classList.add("open");
+  $("#closeSheet").onclick = closeSheet; $("#sheetBg").onclick = closeSheet; $("#closeSheet").focus();
+}
 function closeSheet(){ $("#sheet").classList.remove("open"); $("#sheetBg").classList.remove("open"); }
 function openDay(d){
   const o = dayObj(d), note = (S.days[d] && S.days[d].note) || "", sh = $("#sheet");
@@ -383,7 +389,11 @@ function vProd(v, r){
     else renderShoot(body, sc, focus, st);
   });
 }
-function itemsHTML(items){ return `<dl class="lines">${items.map(it=>`<dt class="${/^Nói/.test(it.k)?"k-say":""}">${esc(it.k==="Nói"?"Nói tại chỗ":it.k==="Lồng tiếng"?"Lồng tiếng (thu sau)":(it.k||"·"))}</dt><dd class="${/^Nói/.test(it.k)?"say":/^Lồng tiếng/.test(it.k)?"vo":/^Chữ trên hình/.test(it.k)?"ost":""}">${inline(it.v)}</dd>`).join("")}</dl>`; }
+function refPics(v){ return v.split(" · ").map(x => { const m = x.trim().match(/^([a-z0-9_]+)\s*\((.+)\)$/); return m ? {k:m[1], cap:m[2]} : null; }).filter(Boolean); }
+function itemsHTML(items){ return `<dl class="lines">${items.map(it=>{
+  if (it.k === "Ảnh mẫu"){ const ps = refPics(it.v); return `<dt>Ảnh mẫu</dt><dd class="pics">${ps.map(p=>`<button type="button" class="pic" data-pic="${p.k}" data-cap="${esc(p.cap)}"><img src="${img(p.k)}" alt="${esc(p.cap)}" loading="lazy"><span>${esc(p.cap)}</span></button>`).join("")}</dd>`; }
+  const lab = it.k==="Nói" ? "Nói tại chỗ" : it.k==="Nói thêm" ? "Nói thêm (nếu hứng)" : it.k==="Lồng tiếng" ? "Lồng tiếng (thu sau)" : (it.k||"·");
+  return `<dt class="${/^Nói/.test(it.k)?"k-say":""}">${esc(lab)}</dt><dd class="${it.k==="Nói thêm"?"say alt":/^Nói/.test(it.k)?"say":/^Lồng tiếng/.test(it.k)?"vo":/^Chữ trên hình/.test(it.k)?"ost":""}">${inline(it.v)}</dd>`; }).join("")}</dl>`; }
 function secKey(s){ return s.kind === "day" ? "d" + s.d : s.id; }
 function renderShoot(body, sc, focus, st){
   const parts = sc.sections.filter(s => s.kind !== "list"), lists = sc.sections.filter(s => s.kind === "list");
@@ -462,6 +472,7 @@ function bindBeats(body){
   });
   body.querySelectorAll("[data-rec]").forEach(b => b.onclick = () => record(b, b.dataset.rec));
   body.querySelectorAll("[data-vo]").forEach(b => b.onclick = () => draftVO(b, b.dataset.vo));
+  body.querySelectorAll("[data-pic]").forEach(b => b.onclick = () => openPic(b.dataset.pic, b.dataset.cap));
   bindDict(body);
 }
 async function draftVO(btn, k){
@@ -598,7 +609,7 @@ const FX = [
 ];
 const FXBG = ["bosang","chatuchak","maeklong","chouifong","indigo","paiwalk","mekong2","iconsiam","srisuphan","bangkrachao","amphawa","singha"];
 let fxbgI = 0;
-function fxVid(src, tall){ const bg = FXBG[(fxbgI++) % FXBG.length]; return `<button type="button" class="fxv ${tall?"tall":""}" style="background-image:url(img/${bg}.jpg)" aria-label="Xem to"><video data-src="${src}" muted playsinline preload="none"></video></button>`; }
+function fxVid(src, tall){ const bg = FXBG[(fxbgI++) % FXBG.length]; const pv = /\.webm$/.test(src) ? "fx/preview/" + src.slice(3).replace(/\//g, "__").replace(/\.webm$/, ".mp4") : src; return `<button type="button" class="fxv ${tall?"tall":""}" style="background-image:url(img/${bg}.jpg)" aria-label="Xem to"><video data-src="${pv}" muted playsinline preload="none"></video></button>`; }
 function fxLinks(arr){ return `<p class="fxl">${arr.map(([t,u])=>`<button type="button" data-dl="${u}">${t}</button>`).join("")}</p>`; }
 document.addEventListener("click", async e => {
   const b = e.target.closest("[data-dl]"); if (!b) return;

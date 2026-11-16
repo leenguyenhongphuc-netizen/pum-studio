@@ -34,7 +34,7 @@ p{margin:0}
 .rail .foot{margin-top:auto;font-size:13px;color:var(--muted);line-height:1.5}
 .rail .foot img{width:84px;display:block;margin-bottom:8px}
 main{margin-left:var(--rail);min-height:100vh}
-.wrap{max-width:940px;padding:40px 48px 120px}
+.wrap{max-width:1040px;margin:0 auto;padding:40px 48px 120px}
 .topbar,.tabbar{display:none}
 @media (max-width: 899px){
   .rail{display:none}
@@ -139,7 +139,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--rose);outline:none}
 .unit{display:inline-flex;border:2px solid var(--ink);border-radius:999px;overflow:hidden;justify-self:start}
 .unit button{border:0;background:transparent;padding:0 16px;min-height:42px;font-weight:900;cursor:pointer}
 .unit button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
-.add-grid{display:grid;grid-template-columns:1.2fr auto 1fr 120px;gap:12px;align-items:end}
+.add-grid{display:grid;grid-template-columns:1.2fr auto 1fr auto;gap:12px;align-items:end}.add-grid .wide{white-space:nowrap}
 .add-grid .note{grid-column:1/-2}
 @media (max-width:700px){.add-grid{grid-template-columns:1fr auto}.add-grid .wide,.add-grid .note{grid-column:1/-1}}
 .act{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
@@ -205,7 +205,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--rose);outline:none}
 .steps{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 16px}
 .steps span{font-size:13px;font-weight:800;padding:3px 10px;border-radius:999px;background:var(--line);color:var(--muted)}
 .steps span.ok{background:var(--ink);color:var(--paper)}
-.notice{background:var(--blush);padding:16px 18px;font-size:15px;border-radius:14px}
+.notice{background:var(--blush);padding:16px 18px;font-size:15px;border-radius:14px;max-width:760px}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:12px 20px;border-radius:999px;z-index:40;font-weight:800;max-width:90vw}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px}
 @media (max-width:760px){.grid2{grid-template-columns:1fr}}
@@ -240,7 +240,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--rose);outline:none}
 .phr div{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--line);align-items:baseline}
 .phr .n{color:var(--rose);font-weight:900}.phr b{font-size:17px}.phr small{grid-column:2/-1;color:var(--muted)}
 @media (max-width:760px){.phr{grid-template-columns:1fr}}
-.fxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:24px}
+.fxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:22px}
 .fxc{display:flex;flex-direction:column;gap:6px}.fxc b{font-size:18px;margin-top:6px}.fxc span{color:var(--muted);font-size:15px}
 .fxv{display:block;width:100%;padding:0;border:0;cursor:zoom-in;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#5a4a3a url(img/bosang.jpg) center/cover}
 .fxv.tall{aspect-ratio:9/16;max-width:200px}
@@ -321,6 +321,14 @@ input:focus,select:focus,textarea:focus{border-color:var(--rose);outline:none}
 .fxjump{position:sticky;top:0;z-index:4;background:var(--bg);padding:8px 0}
 @media (max-width:899px){.fxjump{top:55px}}
 details.prev{margin-top:48px;color:var(--muted)}details.prev>summary{cursor:pointer;font-weight:800;min-height:44px;display:flex;align-items:center}
+.act a{display:inline-flex;align-items:center;min-height:40px}
+#rate{min-height:40px!important}
+.pub a[href='#/chi-tieu']{display:inline-flex;align-items:center;min-height:40px}
+.lines dd.say.alt{font-size:16px;font-weight:700;border-left-style:dashed;color:var(--ink)}
+.lines dd.pics{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+.pic{flex:0 0 auto;width:150px;border:0;padding:0;background:none;text-align:left;cursor:zoom-in;font:inherit}
+.pic img{width:150px;height:104px;object-fit:cover;border-radius:12px;display:block}
+.pic span{display:block;font-size:13px;font-weight:700;color:var(--muted);line-height:1.3;margin-top:5px}
 .gate{position:fixed;inset:0;z-index:1000;background:var(--blush);display:grid;place-items:center;padding:24px 16px;overflow:auto}
 .gate-box{width:min(380px,100%);min-width:0;background:var(--paper);border-radius:28px;padding:30px 26px 24px;text-align:center}
 .gate-art{position:relative;width:200px;margin:-4px auto 18px}
@@ -370,6 +378,6 @@ details.prev{margin-top:48px;color:var(--muted)}details.prev>summary{cursor:poin
   <p id="gateMsg" class="gate-msg" role="status"></p>
   <p class="gate-note">Mỗi máy chỉ nhập một lần.</p>
 </form></div>
-<script>window.PUMV='1794826929'</script><script src="gate.js?v=1794826929"></script>
+<script>window.PUMV='1794830183'</script><script src="gate.js?v=1794830183"></script>
 </body>
 </html>
