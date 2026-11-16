@@ -399,9 +399,10 @@ function vProd(v, r){
     else renderShoot(body, sc, focus, st);
   });
 }
-/* ---------- đọc to (giọng tiếng Việt của máy) ---------- */
+/* ---------- đọc to: giọng Hoài My đọc sẵn (audio/), thiếu file thì dùng giọng của máy ---------- */
+const SILENT = "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//NwwAAAAAAAAAAAAEluZm8AAAAPAAAABgAAAykAWlpaWlpaWlpaWlpaWlpaWnt7e3t7e3t7e3t7e3t7e3t7nJycnJycnJycnJycnJycnL29vb29vb29vb29vb29vb293t7e3t7e3t7e3t7e3t7e3t7/////////////////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQCowAAAAAAAAMpso+sIAAAAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NCxKMAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NAxKQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/80LEowAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU=";
 const TTS = {
-  rates:[1, 1.25, 1.5, 0.8], cur:null, voice:null,
+  rates:[1, 1.25, 1.5, 0.8], cur:null, voice:null, audio:null, url:null, tok:0,
   rate(){ const r = Number(LS.get("ttsRate", 1)); return this.rates.includes(r) ? r : 1; },
   rateLabel(){ return String(this.rate()).replace(".", ",") + "x"; },
   ok(){ return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window; },
@@ -412,20 +413,46 @@ const TTS = {
     return vs.find(v => v.localService) || vs[0] || null;
   },
   clean(t){ return t.replace(/\([^)]*\)/g, " ").replace(/_{2,}/g, " … ").replace(/[“”"«»]/g, "").replace(/\s+/g, " ").trim(); },
-  stop(){ try{ speechSynthesis.cancel(); }catch(e){} if (this.cur){ this.cur.classList.remove("on"); const sp = this.cur.querySelector("span"); if (sp) sp.textContent = "Nghe"; } this.cur = null; },
+  async hash(t){ const b = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("").slice(0, 16); },
+  async clip(text){
+    const h = await this.hash(text);
+    if (window.PUMDECB){ const r = await fetch(`audio/${h}.enc`); if (!r.ok) throw 0; return new Blob([await window.PUMDECB(await r.arrayBuffer())], {type:"audio/mpeg"}); }
+    const r = await fetch(`audio/${h}.mp3`); if (!r.ok) throw 0; return await r.blob();
+  },
+  mark(btn, on){ btn.classList.toggle("on", on); const sp = btn.querySelector("span"); if (sp) sp.textContent = on ? "Dừng" : "Nghe"; },
+  stop(){
+    this.tok++;
+    try{ speechSynthesis.cancel(); }catch(e){}
+    if (this.audio){ try{ this.audio.pause(); }catch(e){} }
+    if (this.url){ URL.revokeObjectURL(this.url); this.url = null; }
+    if (this.cur) this.mark(this.cur, false);
+    this.cur = null;
+  },
   play(btn){
-    if (!this.ok()){ toast("Trình duyệt này chưa đọc được. Thử mở bằng Safari hoặc Chrome."); return; }
     if (this.cur === btn){ this.stop(); return; }
     this.stop();
     const dd = btn.closest("dt").nextElementSibling; const text = this.clean(dd ? dd.textContent : ""); if (!text) return;
+    if (!this.audio){ this.audio = new Audio(); this.audio.preload = "auto"; }
+    const a = this.audio, tok = this.tok;
+    /* iPhone chỉ cho phát tiếng trong lúc bấm, nên mở khóa ngay bằng một đoạn im lặng */
+    try{ a.src = SILENT; const p = a.play(); if (p) p.catch(() => {}); }catch(e){}
+    this.cur = btn; this.mark(btn, true);
+    this.clip(text).then(blob => {
+      if (tok !== this.tok) return;
+      this.url = URL.createObjectURL(blob);
+      a.src = this.url; a.playbackRate = this.rate(); try{ a.preservesPitch = true; a.webkitPreservesPitch = true; }catch(e){}
+      a.onended = () => { if (tok === this.tok) this.stop(); };
+      const p = a.play(); if (p) p.catch(() => { if (tok === this.tok) this.speak(btn, text, tok); });
+    }).catch(() => { if (tok === this.tok) this.speak(btn, text, tok); });
+  },
+  speak(btn, text, tok){
+    if (!this.ok()){ this.stop(); toast("Trình duyệt này chưa đọc được. Thử mở bằng Safari hoặc Chrome."); return; }
     this.voice = this.voice || this.pick();
-    if (!this.voice && !this._warned){ this._warned = true; toast("Máy chưa có giọng tiếng Việt nên đọc có thể lơ lớ. iPhone: Cài đặt › Trợ năng › Nội dung được đọc › Giọng nói › Tiếng Việt."); }
     const parts = text.split(/(?<=[.!?…])\s+/).filter(x => x.trim());
-    this.cur = btn; btn.classList.add("on"); const sp = btn.querySelector("span"); if (sp) sp.textContent = "Dừng";
     parts.forEach((t, i) => {
       const u = new SpeechSynthesisUtterance(t); u.lang = "vi-VN"; u.rate = this.rate(); u.pitch = 1; if (this.voice) u.voice = this.voice;
-      if (i === parts.length - 1) u.onend = () => { if (this.cur === btn) this.stop(); };
-      u.onerror = ev => { if (ev && ev.error === "interrupted" || ev.error === "canceled") return; if (this.cur === btn) this.stop(); };
+      if (i === parts.length - 1) u.onend = () => { if (tok === this.tok) this.stop(); };
+      u.onerror = ev => { if (ev && (ev.error === "interrupted" || ev.error === "canceled")) return; if (tok === this.tok) this.stop(); };
       speechSynthesis.speak(u);
     });
   }
@@ -436,7 +463,8 @@ document.addEventListener("click", e => {
   const r = e.target.closest("[data-ttsrate]"); if (!r) return;
   const rs = TTS.rates, n = rs[(rs.indexOf(TTS.rate()) + 1) % rs.length]; LS.set("ttsRate", n);
   document.querySelectorAll("[data-ttsrate]").forEach(x => x.textContent = TTS.rateLabel());
-  if (TTS.cur){ const c = TTS.cur; TTS.stop(); TTS.play(c); }
+  if (TTS.cur && TTS.url && TTS.audio){ TTS.audio.playbackRate = n; }
+  else if (TTS.cur){ const c = TTS.cur; TTS.stop(); TTS.play(c); }
 });
 window.addEventListener("hashchange", () => TTS.stop());
 function refPics(v){ return v.split(" · ").map(x => { const m = x.trim().match(/^([a-z0-9_]+)\s*\((.+)\)$/); return m ? {k:m[1], cap:m[2]} : null; }).filter(Boolean); }

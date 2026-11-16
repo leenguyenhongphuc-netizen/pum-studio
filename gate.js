@@ -18,6 +18,7 @@ async function dec(buf){
   return new TextDecoder().decode(pt);
 }
 window.PUMDEC = dec;
+window.PUMDECB = async buf => { const u = new Uint8Array(buf); return crypto.subtle.decrypt({name:"AES-GCM", iv:u.slice(0,12)}, AES, u.slice(12)); };
 
 /* db giống giao diện của Claude, chạy trên Supabase */
 const listeners = {}, lastSig = {}; let pollTimer = null, polling = null, lastOk = 0;
