@@ -373,7 +373,7 @@ function vProd(v, r){
   <nav class="st-tabs" aria-label="Chọn tập">${T.test?`<a class="test" href="#/san-xuat/test" ${st.test?'aria-current="page"':''}>${esc(T.test.tab)}</a>`:""}${T.stages.map(s=>`<a href="#/san-xuat/${s.n}" ${s.n===st.n?'aria-current="page"':''}>Tập ${s.n} · ${esc(s.place.split(":")[0])}</a>`).join("")}</nav>
   ${st.test?`<p class="notice small testnote">Tập quay thử trước chuyến Thái: tập cách quay, cách nói tại chỗ và cách thu lồng tiếng sau. Mỗi cảnh có thêm mục <b>Bài tập</b>; cuối ngày điền phần <b>Bài test</b> trong mục Ghi chú.</p>`:""}
   <section class="ephead">
-    ${st.test?`<img src="brand/coffee.png" alt="" class="testimg">`:`<img src="${img(st.img)}" alt="">`}
+    <img src="${img(st.img)}" alt="">
     <div>
       <p class="eyebrowless">${st.test?`Tập test · ${esc(st.when)} · ${esc(st.len)}`:`Tập ${st.n} · ngày ${st.days[0]}–${st.days[1]} · ${esc(st.len)} · đăng ${esc(x.postDate || st.post)}`}</p>
       <h1 class="disp">${esc(st.place)}</h1>
@@ -401,6 +401,7 @@ function vProd(v, r){
 }
 function refPics(v){ return v.split(" · ").map(x => { const m = x.trim().match(/^([a-z0-9_]+)\s*\((.+)\)$/); return m ? {k:m[1], cap:m[2]} : null; }).filter(Boolean); }
 function itemsHTML(items){ return `<dl class="lines">${items.map(it=>{
+  if (it.k === "Bản đồ"){ const ms = it.v.split(" · ").map(x => x.split(" | ")).filter(m => m.length === 2); return `<dt>Bản đồ</dt><dd class="maps">${ms.map(([lab,q])=>`<a class="lnkbtn" style="background:var(--blush)" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q.trim())}" target="_blank" rel="noopener">${esc(lab.trim())}</a>`).join(" ")}</dd>`; }
   if (it.k === "Ảnh mẫu"){ const ps = refPics(it.v); return `<dt>Ảnh mẫu</dt><dd class="pics">${ps.map(p=>`<button type="button" class="pic" data-pic="${p.k}" data-cap="${esc(p.cap)}"><img src="${img(p.k)}" alt="${esc(p.cap)}" loading="lazy"><span>${esc(p.cap)}</span></button>`).join("")}</dd>`; }
   const lab = it.k==="Nói" ? "Nói tại chỗ" : it.k==="Nói thêm" ? "Nói thêm (nếu hứng)" : it.k==="Lồng tiếng" ? "Lồng tiếng (thu sau)" : (it.k||"·");
   return `<dt class="${/^Nói/.test(it.k)?"k-say":""}">${esc(lab)}</dt><dd class="${it.k==="Nói thêm"?"say alt":/^Nói/.test(it.k)?"say":/^Lồng tiếng/.test(it.k)?"vo":/^Chữ trên hình/.test(it.k)?"ost":""}">${inline(it.v)}</dd>`; }).join("")}</dl>`; }
