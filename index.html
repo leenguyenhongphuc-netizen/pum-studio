@@ -326,9 +326,15 @@ details.prev{margin-top:48px;color:var(--muted)}details.prev>summary{cursor:poin
 .pub a[href='#/chi-tieu']{display:inline-flex;align-items:center;min-height:40px}
 .lines dd.say.alt{font-size:16px;font-weight:700;border-left-style:dashed;color:var(--ink)}
 .lines dd.pics{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
-.pic{flex:0 0 auto;width:150px;border:0;padding:0;background:none;text-align:left;cursor:zoom-in;font:inherit}
+.pic{flex:0 0 auto;width:150px;border:0;padding:0;background:none;text-align:left;cursor:zoom-in;font:inherit;display:flex;flex-direction:column;justify-content:flex-start;align-self:flex-start}
 .pic img{width:150px;height:104px;object-fit:cover;border-radius:12px;display:block}
 .pic span{display:block;font-size:13px;font-weight:700;color:var(--muted);line-height:1.3;margin-top:5px}
+.tabbar a span{white-space:nowrap}
+.lines dd.pics{align-items:flex-start}
+.lnkbtn{white-space:nowrap}
+.bhead{flex-wrap:wrap}
+@media (max-width:420px){.pub .row .btn{flex:1 1 100%}}
+.beat-h2{flex-wrap:wrap}.beat-h2 .bt{flex:1 1 190px}
 .gate{position:fixed;inset:0;z-index:1000;background:var(--blush);display:grid;place-items:center;padding:24px 16px;overflow:auto}
 .gate-box{width:min(380px,100%);min-width:0;background:var(--paper);border-radius:28px;padding:30px 26px 24px;text-align:center}
 .gate-art{position:relative;width:200px;margin:-4px auto 18px}
@@ -378,6 +384,6 @@ details.prev{margin-top:48px;color:var(--muted)}details.prev>summary{cursor:poin
   <p id="gateMsg" class="gate-msg" role="status"></p>
   <p class="gate-note">Mỗi máy chỉ nhập một lần.</p>
 </form></div>
-<script>window.PUMV='1794830183'</script><script src="gate.js?v=1794830183"></script>
+<script>window.PUMV='1794832767'</script><script src="gate.js?v=1794832767"></script>
 </body>
 </html>

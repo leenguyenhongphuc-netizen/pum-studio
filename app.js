@@ -17,7 +17,7 @@ const ICON = {
 const ROUTES = [
   {k:"hom-nay", name:"Hôm nay", icon:ICON.today},
   {k:"lich-trinh", name:"Lịch trình", icon:ICON.trip},
-  {k:"san-xuat", name:"Quay & dựng", icon:ICON.prod},
+  {k:"san-xuat", name:"Quay & dựng", tab:"Quay", icon:ICON.prod},
   {k:"chi-tieu", name:"Chi tiêu", icon:ICON.money},
   {k:"kenh", name:"Cẩm nang", icon:ICON.brand}
 ];
@@ -137,7 +137,7 @@ function renderShell(){
   const r = route();
   const cur = r.k === "hieu-ung" ? "kenh" : r.k;
   const items = ROUTES.map(x => `<a href="#/${x.k}" ${cur===x.k?'aria-current="page"':''}>${x.icon}<span>${x.name}</span></a>`).join("");
-  $("#nav").innerHTML = items; $("#tabbar").innerHTML = items;
+  $("#nav").innerHTML = items; $("#tabbar").innerHTML = ROUTES.map(x => `<a href="#/${x.k}" ${cur===x.k?'aria-current="page"':''}>${x.icon}<span>${x.tab||x.name}</span></a>`).join("");
   const d = tripDay();
   $("#railFoot").innerHTML = `<img src="brand/hello.png" alt=""><b>Thái Lan</b> · 7/12/2026 – 3/1/2027<br>${esc(S.sync)}`;
   $("#syncTop").textContent = d < 1 ? `còn ${1-d} ngày` : (d <= 28 ? `ngày ${d}/28` : "đã về");
@@ -566,7 +566,7 @@ function renderPublish(body, sc, st){
     <label class="f">Link tập đã lên YouTube<input type="url" id="pb-posted" value="${esc(x.posted||"")}" placeholder="https://youtu.be/…"></label>
     <div class="row" style="margin-top:14px">
       <button class="btn" data-savepub="1">Lưu</button>
-      <button class="btn rose" data-send="1" ${x.drive?"":"disabled"}>${x.request?"Gửi lại phiếu dựng":"Gửi phiếu dựng cho Claude"}</button>
+      <button class="btn rose" data-send="1" ${x.drive?"":"disabled"}>${x.request?"Gửi lại phiếu dựng":"Gửi phiếu dựng"}</button>
     </div>
     ${x.request?`<p class="small muted" style="margin-top:8px">Đã gửi lúc ${new Date(x.request.at).toLocaleString("vi-VN")}. Nhắn Claude trong project Pum: “Dựng tập ${st.n} từ Pum Studio”.</p>`:(!x.drive?`<p class="small muted" style="margin-top:8px">Cần link Drive trước khi gửi dựng.</p>`:"")}
   </section>
