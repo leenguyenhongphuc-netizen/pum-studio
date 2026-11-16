@@ -1,6 +1,6 @@
 (function(){
 "use strict";
-const SB = "https://lpiwmdomdzebzhmxzesn.supabase.co", KEY = "sb_publishable_6H1om-emHz6RrLBy1guQfg_PfGyseKE", SALT = "807d9fa2a019d453bdb5981d5d432d76", ITER = 310000;
+const SB = "https://lpiwmdomdzebzhmxzesn.supabase.co", KEY = "sb_publishable_6H1om-emHz6RrLBy1guQfg_PfGyseKE", SALT = "41e04503fa159236e1f24693abfcc4d5", ITER = 310000;
 const hex = h => new Uint8Array(h.match(/../g).map(x => parseInt(x, 16)));
 let PASS = null, AES = null;
 async function rpc(fn, args){
@@ -53,21 +53,26 @@ async function enter(p, remember){
   const ok = await rpc("pum_check", {p});
   if (!ok) return false;
   PASS = p; AES = await deriveKey(p);
-  const r = await fetch("trip.enc"); const js = await dec(await r.arrayBuffer());
+  const r = await fetch("trip.enc?v=" + window.PUMV); const js = await dec(await r.arrayBuffer());
   (new Function(js))();
   if (remember){ try{ localStorage.setItem("pum:pass", p); }catch(_){} }
   document.getElementById("gate").classList.add("hide");
-  const s = document.createElement("script"); s.src = "app.js"; document.body.appendChild(s);
+  const s = document.createElement("script"); s.src = "app.js?v=" + window.PUMV; document.body.appendChild(s);
   pollTimer = setInterval(() => { if (!document.hidden) poll(); }, 10000);
   return true;
 }
 const form = document.getElementById("gateForm"), msg = document.getElementById("gateMsg"), btn = document.getElementById("gateBtn");
 form.onsubmit = async ev => {
   ev.preventDefault(); btn.disabled = true; msg.textContent = "Đang kiểm tra…";
-  try{ if (!(await enter(document.getElementById("gatePass").value.trim(), true))) msg.textContent = "Sai mật khẩu."; }
+  const pv = document.getElementById("gatePass").value.trim();
+  if (!pv){ msg.textContent = "Nhập mật khẩu trước nha."; document.getElementById("gatePass").focus(); btn.disabled = false; return; }
+  try{ if (!(await enter(pv, true))){ msg.textContent = "Sai mật khẩu, thử lại nha."; const g = document.getElementById("gate"); g.classList.remove("shake"); void g.offsetWidth; g.classList.add("shake"); document.getElementById("gatePass").select(); } }
   catch(e){ msg.textContent = "Chưa kết nối được. Kiểm tra mạng rồi thử lại."; }
   btn.disabled = false;
 };
+const eye = document.getElementById("gateEye"), pin = document.getElementById("gatePass");
+eye.onclick = () => { const show = pin.type === "password"; pin.type = show ? "text" : "password"; eye.textContent = show ? "Ẩn" : "Hiện"; eye.setAttribute("aria-label", show ? "Ẩn mật khẩu" : "Hiện mật khẩu"); pin.focus(); };
+(() => { const n = Math.round((new Date("2026-12-07T00:00:00") - new Date(new Date().toDateString())) / 864e5); if (n > 0) document.getElementById("gateSub").textContent = `Còn ${n} ngày nữa là bay`; })();
 let saved = null; try{ saved = localStorage.getItem("pum:pass"); }catch(_){}
 if (saved){ msg.textContent = "Đang mở…"; enter(saved, false).then(ok => { if (!ok){ msg.textContent = ""; try{ localStorage.removeItem("pum:pass"); }catch(_){} } }).catch(() => { msg.textContent = "Chưa kết nối được. Kiểm tra mạng rồi thử lại."; }); }
 else document.getElementById("gatePass").focus();

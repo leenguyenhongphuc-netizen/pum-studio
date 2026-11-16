@@ -17,10 +17,9 @@ const ICON = {
 const ROUTES = [
   {k:"hom-nay", name:"Hôm nay", icon:ICON.today},
   {k:"lich-trinh", name:"Lịch trình", icon:ICON.trip},
+  {k:"san-xuat", name:"Quay & dựng", icon:ICON.prod},
   {k:"chi-tieu", name:"Chi tiêu", icon:ICON.money},
-  {k:"san-xuat", name:"Sản xuất", icon:ICON.prod},
-  {k:"hieu-ung", name:"Hiệu ứng", icon:ICON.fx},
-  {k:"kenh", name:"Kênh", icon:ICON.brand}
+  {k:"kenh", name:"Cẩm nang", icon:ICON.brand}
 ];
 const LS = {
   get(k, d){ try{ const v = localStorage.getItem("pum:"+k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
@@ -93,7 +92,7 @@ const WD = ["CN","T2","T3","T4","T5","T6","T7"];
 const HOW = "“Nói tại chỗ” là câu Pum nói lúc cầm máy, đọc lướt cho nhớ ý rồi nói bằng giọng mình. Chỗ trong ngoặc tròn là phản ứng thật, thấy sao nói vậy. “Lồng tiếng” thu sau khi về phòng, sửa theo chuyện thật đã xảy ra. Chỗ ___ là số thật, quay xong mới điền. “Quay thêm” là cảnh nền để lúc dựng có chỗ đặt lồng tiếng.";
 async function loadScript(n){
   if (S.scripts[n]) return S.scripts[n];
-  try{ const r = await fetch(`scripts/tap${n}.enc`); if (!r.ok) throw 0; S.scripts[n] = parseScript(await window.PUMDEC(await r.arrayBuffer()), n); }
+  try{ const r = await fetch(`scripts/tap${n}.enc?v=${window.PUMV}`); if (!r.ok) throw 0; S.scripts[n] = parseScript(await window.PUMDEC(await r.arrayBuffer()), n); }
   catch(e){ S.scripts[n] = {error:true, sections:[], meta:{}, title:""}; }
   return S.scripts[n];
 }
@@ -136,7 +135,8 @@ function toast(t){ let el = $("#toast"); if (!el){ el = document.createElement("
 function route(){ const h = location.hash.replace(/^#\/?/,"") || "hom-nay"; const [k, a, b] = h.split("/"); return {k, a, b}; }
 function renderShell(){
   const r = route();
-  const items = ROUTES.map(x => `<a href="#/${x.k}" ${r.k===x.k?'aria-current="page"':''}>${x.icon}<span>${x.name}</span></a>`).join("");
+  const cur = r.k === "hieu-ung" ? "kenh" : r.k;
+  const items = ROUTES.map(x => `<a href="#/${x.k}" ${cur===x.k?'aria-current="page"':''}>${x.icon}<span>${x.name}</span></a>`).join("");
   $("#nav").innerHTML = items; $("#tabbar").innerHTML = items;
   const d = tripDay();
   $("#railFoot").innerHTML = `<img src="brand/hello.png" alt=""><b>Thái Lan</b> · 7/12/2026 – 3/1/2027<br>${esc(S.sync)}`;
@@ -145,7 +145,7 @@ function renderShell(){
 function render(){
   renderShell();
   const r = route(), v = $("#view");
-  const fn = {"hom-nay":vToday, "lich-trinh":vTrip, "chi-tieu":vMoney, "san-xuat":vProd, "kenh":vBrand, "hieu-ung":vFx}[r.k] || vToday;
+  const fn = {"hom-nay":vToday, "lich-trinh":vTrip, "chi-tieu":vMoney, "san-xuat":vProd, "kenh":vBrand, "hieu-ung":(v)=>vBrand(v,{k:"kenh",a:"hieu-ung"})}[r.k] || vToday;
   const active = document.activeElement && document.activeElement.id; const keepVal = active && document.activeElement.value;
   fn(v, r);
   if (active){ const el = document.getElementById(active); if (el && el !== document.activeElement){ if (keepVal != null && "value" in el && el.dataset.keep !== "0") el.value = keepVal; el.focus(); } }
@@ -155,11 +155,11 @@ const postcard = (k, cap) => k ? `<figure class="post"><img src="${img(k)}" alt=
 
 /* ---------- Hôm nay ---------- */
 const PREP = [
-  ["binhchon","Đăng 9 câu bình chọn trước chuyến (tab Kênh), chụp lại kết quả trước 7/12"],
+  ["binhchon","Đăng 9 câu bình chọn (Cẩm nang › Trước chuyến), chụp lại kết quả trước 7/12"],
   ["hochieu","Hộ chiếu còn hạn tới ít nhất tháng 6/2027"],
   ["ve","Vé máy bay đi Chiang Mai 7/12, về từ Bangkok"],
   ["dich","Cài Google Dịch, tải gói tiếng Thái để dùng khi không có mạng"],
-  ["sotay","Lưu sổ tay tiếng Thái (tab Kênh) vào điện thoại, dùng riêng"],
+  ["sotay","Lưu sổ tay tiếng Thái (Cẩm nang › Trước chuyến) vào điện thoại, dùng riêng"],
   ["hop","Mang một chiếc hộp nhỏ làm hộp kỷ niệm"],
   ["hoavan","Lưu hình hoa văn thắng bình chọn để đưa thợ vẽ ô ở Bo Sang"],
   ["thac","Đặt xe có tài xế hoặc tour nửa ngày đi thác Bua Thong 11/12"],
@@ -176,59 +176,65 @@ function dayCard(o){
     ${o.see?`<dt>Sẽ thấy</dt><dd>${esc(o.see)}</dd>`:""}
     ${o.cost?`<dt>Giá</dt><dd>${esc(o.cost)}</dd>`:""}
     ${o.note?`<dt>Lưu ý</dt><dd>${esc(o.note)}</dd>`:""}
-    ${o.map?`<dt>Bản đồ</dt><dd><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.map)}" target="_blank" rel="noopener">Mở Google Maps</a></dd>`:""}
+    ${o.map?`<dt>Bản đồ</dt><dd><a class="lnkbtn" style="background:var(--blush)" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.map)}" target="_blank" rel="noopener">Mở Google Maps</a></dd>`:""}
   </dl><a class="vchip" href="#/san-xuat/${o.st}/d${o.d}"><b>Tập ${o.st} · ${esc(stObj(o.st).place)}</b><small>Kịch bản ngày ${o.d}: quay gì, nói gì tại chỗ, lồng tiếng gì</small><span class="go">Mở</span></a>`;
 }
 function vToday(v){
   const d = tripDay();
-  const pick = `<label class="f small" style="max-width:280px">Xem thử như đang ở ngày
-    <select id="preview"><option value="">Hôm nay thật</option>${T.days.map(x=>`<option value="${x.d}" ${Number(S.previewDay)===x.d?"selected":""}>Ngày ${x.d} · ${x.date}</option>`).join("")}</select></label>`;
+  const pick = `<details class="prev"><summary>Xem thử như đang ở một ngày khác</summary><label class="f small" style="max-width:300px">Ngày
+    <select id="preview"><option value="">Hôm nay thật</option>${T.days.map(x=>`<option value="${x.d}" ${Number(S.previewDay)===x.d?"selected":""}>Ngày ${x.d} · ${x.date}</option>`).join("")}</select></label></details>`;
   if (d < 1){
-    const done = PREP.filter(([k])=>S.prep[k] && S.prep[k].done).length;
+    const done = PREP.filter(([k])=>S.prep[k] && S.prep[k].done).length, nx = PREP.find(([k])=>!(S.prep[k] && S.prep[k].done));
     v.innerHTML = `
-    <section class="hero">
-      <div><p class="kicker">Trước chuyến đi</p><h1 class="disp h-hero num">Còn ${1-d} ngày</h1>
-        <p class="city">Bay đi Chiang Mai, thứ Hai 7/12</p><p class="muted" style="margin-top:8px">28 ngày, 7 tập YouTube dài. TikTok cắt từ từng tập.</p></div>
-      ${postcard("bosang","Làng ô Bo Sang · ngày 4")}
-    </section>
+    <section class="banner"><img src="img/bosang.jpg" alt=""><div class="in"><p class="k">Trước chuyến đi · bay thứ Hai 7/12</p><h1 class="disp num">Còn ${1-d} ngày</h1><p class="c">28 ngày ở Thái, 7 tập YouTube</p></div></section>
+    ${nx?`<section class="sec next" style="margin-top:18px"><div><span class="k">Việc tiếp theo · ${done}/${PREP.length} xong</span><b>${esc(nx[1])}</b></div><button class="btn" data-donenext="${nx[0]}">Xong</button></section>`
+      :`<section class="sec next" style="margin-top:18px"><div><span class="k">${PREP.length}/${PREP.length} xong</span><b>Đã sẵn sàng bay.</b></div></section>`}
+    <section class="sec" style="margin-top:28px"><div class="quick">
+      <a href="#/lich-trinh"><b>Lịch trình</b><span>28 ngày, 7 tập</span></a>
+      <a href="#/san-xuat/1"><b>Kịch bản tập 1</b><span>Chiang Mai · ngày 1–5</span></a>
+      <a href="#/kenh/truoc"><b>Bình chọn</b><span>9 câu đăng trước 7/12</span></a>
+    </div></section>
     <section class="sec">
       <div class="sec-head"><h2 class="disp h-sec">Việc trước khi bay</h2><span class="muted num" style="font-weight:800">${done}/${PREP.length}</span></div>
       <div class="progress" style="margin-bottom:8px"><i style="width:${done/PREP.length*100}%"></i></div>
       <ul class="check">${PREP.map(([k,t])=>{const ok=S.prep[k]&&S.prep[k].done;return `<li class="${ok?"done":""}"><input type="checkbox" id="prep-${k}" data-prep="${k}" ${ok?"checked":""}><label for="prep-${k}"><span>${esc(t)}</span></label></li>`}).join("")}</ul>
     </section>
-    <section class="sec">
-      <div class="sec-head"><h2 class="disp h-sec">Ngày đầu tiên</h2><a class="btn small ghost" href="#/lich-trinh">Cả lịch trình</a></div>
-      ${dayCard(dayObj(1))}
-    </section>
-    <section class="sec">${pick}</section>`;
+    ${pick}`;
   } else if (d > 28){
-    v.innerHTML = `<section class="hero"><div><p class="kicker">Đã về</p><h1 class="disp h-hero">Xong chuyến Thái</h1><p class="city">Tổng chi ${fmtVND(spentTotal())}</p></div>${postcard("fireworks","Bangkok · 31/12")}</section>
-    <section class="sec"><a class="btn rose" href="#/san-xuat/7">Dựng và đăng các tập</a></section><section class="sec">${pick}</section>`;
+    v.innerHTML = `<section class="banner"><img src="img/fireworks.jpg" alt=""><div class="in"><p class="k">Đã về</p><h1 class="disp">Xong chuyến Thái</h1><p class="c">Tổng chi ${fmtVND(spentTotal())}</p></div></section>
+    <section class="sec next"><div><span class="k">Việc tiếp theo</span><b>Dựng và đăng các tập</b></div><a class="btn" href="#/san-xuat/1">Mở</a></section>${pick}`;
   } else {
-    const o = dayObj(d), st = stObj(o.st), next = dayObj(d+1), sp = spentDay(d);
+    const o = dayObj(d), st = stObj(o.st), next = dayObj(d+1), sp = spentDay(d), im = o.img || st.img;
     v.innerHTML = `
-    <section class="hero">
-      <div><p class="kicker">${esc(o.date)} · Tập ${o.st} · ${esc(st.place)}</p><h1 class="disp h-hero num">Ngày ${d}</h1><p class="city">${esc(o.city)}</p></div>
-      ${postcard(o.img || st.img, o.city)}
+    <section class="banner ${im?"":"noimg"}">${im?`<img src="${img(im)}" alt="">`:""}<div class="in"><p class="k">${esc(o.date)} · Tập ${o.st}</p><h1 class="disp num">Ngày ${d}</h1><p class="c">${esc(o.city)}</p></div></section>
+    <section class="sec card" style="margin-top:18px">
+      <p class="lead" style="font-weight:800">${esc(o.todo)}</p>
+      ${o.move?`<p style="margin-top:10px"><b>Đi lại.</b> ${esc(o.move)}</p>`:""}
+      ${o.cost?`<p style="margin-top:6px"><b>Giá.</b> ${esc(o.cost)}</p>`:""}
+      ${o.note?`<p style="margin-top:6px"><b>Lưu ý.</b> ${esc(o.note)}</p>`:""}
+      <div class="row mapbtn">${o.map?`<a class="btn small rose" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.map)}" target="_blank" rel="noopener">Mở bản đồ</a>`:""}<button class="btn small ghost" data-day="${d}">Chi tiết và nhật ký</button></div>
     </section>
-    <section class="sec">${dayCard(o)}</section>
-    <section class="sec"><div class="sec-head"><h2 class="disp h-sec">Hôm nay quay</h2><a class="btn small ghost" href="#/san-xuat/${o.st}/d${d}">Mở trong tập</a></div><div id="todayBeats" class="muted">Đang mở kịch bản…</div></section>
+    <div class="bhead"><h2 class="disp">Hôm nay quay</h2><a class="lnkbtn" href="#/san-xuat/${o.st}/d${d}">Mở trong tập ${o.st}</a></div>
+    <div id="todayBeats" class="muted">Đang mở kịch bản…</div>
     <section class="sec strip">
       <div class="sec-head" style="margin-bottom:10px"><h2 class="disp" style="font-size:24px">Tiêu hôm nay</h2><span class="num" style="font-weight:900">${fmtVND(sp)}</span></div>
       ${addExpenseForm(d)}
     </section>
-    ${next?`<section class="sec"><div class="sec-head"><h2 class="disp h-sec">Ngày mai</h2><span class="muted" style="font-weight:800">${esc(next.date)} · ${esc(next.city)}</span></div><p class="lead">${esc(next.todo)}</p>${next.move?`<p class="muted" style="margin-top:6px">Đi lại: ${esc(next.move)}</p>`:""}</section>`:""}
-    <section class="sec">${pick}</section>`;
+    ${next?`<section class="sec card"><p class="eyebrowless">Ngày mai · ${esc(next.date)} · ${esc(next.city)}</p><p class="lead" style="margin-top:6px">${esc(next.todo)}</p>${next.move?`<p class="muted" style="margin-top:6px">Đi lại: ${esc(next.move)}</p>`:""}</section>`:""}
+    ${pick}`;
   }
   bindCommon(v);
   const sel = $("#preview"); if (sel) sel.onchange = () => { S.previewDay = sel.value || null; LS.set("previewDay", S.previewDay); render(); };
   v.querySelectorAll("[data-prep]").forEach(c => c.onchange = () => put("prep", c.dataset.prep, {done:c.checked}));
+  v.querySelectorAll("[data-donenext]").forEach(b => b.onclick = () => put("prep", b.dataset.donenext, {done:true}));
+  v.querySelectorAll("[data-day]").forEach(b => b.onclick = () => openDay(Number(b.dataset.day)));
   if (d >= 1 && d <= 28){ const o = dayObj(d); loadScript(o.st).then(sc => {
     const box = $("#todayBeats"); if (!box || route().k !== "hom-nay") return;
     const sec = sc.sections.find(s => s.kind === "day" && s.d === d);
     if (!sec){ box.innerHTML = sc.error ? "Chưa mở được kịch bản." : "Hôm nay không có cảnh trong kịch bản. Nghỉ hoặc quay thêm cảnh nền."; return; }
     S.curScript = sc; box.classList.remove("muted");
-    box.innerHTML = `<p class="promise" style="margin-bottom:6px"><b>${esc(sec.title)}.</b> ${esc(sec.q)}</p>` + sec.beats.map(b => beatHTML(b)).join("");
+    const dn = sec.beats.filter(b=>S.beats[b.key]&&S.beats[b.key].shot).length;
+    box.innerHTML = `<p class="promise" style="margin-bottom:6px"><b>${esc(sec.title)}.</b> ${esc(sec.q)} <span class="muted num">· ${dn}/${sec.beats.length} cảnh</span></p>` + sec.beats.map(b => beatHTML(b)).join("");
     bindBeats(box);
   }); }
 }
@@ -241,13 +247,13 @@ function vTrip(v){
     <p class="lead" style="margin-top:14px;max-width:60ch">28 ngày, chia theo 7 tập YouTube. Bấm vào một ngày để xem đi đâu, giá, và ghi nhật ký.</p></section>
   ${T.stages.map(st => `
   <section class="st-block">
-    <div class="st-title"><h2 class="disp" style="font-size:30px">Tập ${st.n} · ${esc(st.place)}</h2><a class="small" style="font-weight:800" href="#/san-xuat/${st.n}">Kịch bản tập</a><p>${esc(st.line)}</p></div>
+    <div class="st-title"><h2 class="disp" style="font-size:30px">Tập ${st.n} · ${esc(st.place)}</h2><a class="lnkbtn" href="#/san-xuat/${st.n}">Kịch bản tập</a><p>${esc(st.line)}</p></div>
     ${T.days.filter(x=>x.st===st.n).map(x=>{
       const cls = x.d===d?"is-today":(x.d<d?"past":""); const note = S.days[x.d] && S.days[x.d].note;
       return `<button class="day-row ${cls}" data-day="${x.d}">
         <span class="d disp num">${x.d}<small>${esc(x.date.split(" ").slice(-1)[0])}</small></span>
         <span><span class="t" style="font-weight:900">${esc(x.city)}</span>${x.d===d?'<span class="tag">hôm nay</span>':''}${note?'<span class="tag soft">có nhật ký</span>':''}<br><span class="muted">${esc(x.todo)}</span></span>
-        ${x.img?`<img src="${img(x.img)}" alt="" loading="lazy">`:'<span class="ph"></span>'}
+        ${x.img?`<img src="${img(x.img)}" alt="" loading="lazy">`:'<span></span>'}
       </button>`;}).join("")}
   </section>`).join("")}`;
   v.querySelectorAll("[data-day]").forEach(b => b.onclick = () => openDay(Number(b.dataset.day)));
@@ -350,16 +356,16 @@ function vProd(v, r){
   const x = S.vids["ep"+st.n] || {};
   v.innerHTML = `
   <nav class="st-tabs" aria-label="Chọn tập">${T.stages.map(s=>`<a href="#/san-xuat/${s.n}" ${s.n===st.n?'aria-current="page"':''}>Tập ${s.n} · ${esc(s.place.split(":")[0])}</a>`).join("")}</nav>
-  <section class="st-head">
+  <section class="ephead">
+    <img src="${img(st.img)}" alt="">
     <div>
-      <p class="muted" style="font-weight:800">Tập ${st.n} · ngày ${st.days[0]}–${st.days[1]} · dài ${esc(st.len)} · đăng ${esc(x.postDate || st.post)}</p>
-      <h1 class="disp" style="font-size:clamp(40px,6vw,64px);margin:10px 0 12px">${esc(st.place)}</h1>
-      <p class="lead" id="epQ">${esc(st.line)}</p>
-      <div id="stProg" style="margin-top:14px" class="muted">Đang mở kịch bản…</div>
+      <p class="eyebrowless">Tập ${st.n} · ngày ${st.days[0]}–${st.days[1]} · ${esc(st.len)} · đăng ${esc(x.postDate || st.post)}</p>
+      <h1 class="disp">${esc(st.place)}</h1>
+      <div id="stProg" class="muted small">Đang mở kịch bản…</div>
     </div>
-    ${postcard(st.img, st.place)}
   </section>
-  <div class="subnav" role="group" aria-label="Phần">
+  <details class="about" id="about"><summary>Câu hỏi, sợi chỉ và luật bạn chọn của tập</summary><div id="epQ" class="card" style="margin-top:6px">${esc(st.line)}</div></details>
+  <div class="seg" role="group" aria-label="Phần" style="margin-top:14px">
     <button data-tab="quay" aria-pressed="${prodTab!=="dang"}">Quay và kịch bản</button>
     <button data-tab="dang" aria-pressed="${prodTab==="dang"}">Dựng và đăng</button>
   </div>
@@ -370,37 +376,52 @@ function vProd(v, r){
     const body = $("#prodBody"); if (!body) return;
     if (sc.error){ body.innerHTML = `<p class="notice">Chưa mở được kịch bản tập này. Tải lại trang thử.</p>`; return; }
     const s = stStats(sc);
-    $("#stProg").innerHTML = `<span class="num" style="font-weight:800;color:var(--ink)">${s.shot}/${s.tot} cảnh đã quay</span><div class="progress" style="margin-top:8px"><i style="width:${s.tot?s.shot/s.tot*100:0}%"></i></div>`;
-    if (sc.meta["Câu hỏi của tập"]) $("#epQ").innerHTML = `<b>${esc(sc.meta["Câu hỏi của tập"])}</b><br><span class="muted">${esc((m=>m.charAt(0).toUpperCase()+m.slice(1))(sc.meta["Sợi chỉ"]||""))}</span>${sc.meta["Luật bạn chọn"]?`<span class="rule"><b>Luật bạn chọn.</b> ${esc(sc.meta["Luật bạn chọn"].replace(/^bình chọn trước chuyến:\s*/,""))}</span>`:""}`;
+    $("#stProg").innerHTML = `<span class="num" style="font-weight:800;color:var(--ink)">${s.shot}/${s.tot} cảnh đã quay</span><div class="progress" style="margin-top:6px;max-width:320px"><i style="width:${s.tot?s.shot/s.tot*100:0}%"></i></div>`;
+    if (sc.meta["Câu hỏi của tập"]) $("#epQ").innerHTML = `<p class="q">${esc(sc.meta["Câu hỏi của tập"])}</p><p class="muted">${esc((m=>m.charAt(0).toUpperCase()+m.slice(1))(sc.meta["Sợi chỉ"]||""))}</p>${sc.meta["Luật bạn chọn"]?`<span class="rule"><b>Luật bạn chọn.</b> ${esc(sc.meta["Luật bạn chọn"].replace(/^bình chọn trước chuyến:\s*/,""))}</span>`:""}`;
     S.curScript = sc;
     if (prodTab === "dang") renderPublish(body, sc, st);
-    else renderShoot(body, sc, focus);
+    else renderShoot(body, sc, focus, st);
   });
 }
 function itemsHTML(items){ return `<dl class="lines">${items.map(it=>`<dt class="${/^Nói/.test(it.k)?"k-say":""}">${esc(it.k==="Nói"?"Nói tại chỗ":it.k==="Lồng tiếng"?"Lồng tiếng (thu sau)":(it.k||"·"))}</dt><dd class="${/^Nói/.test(it.k)?"say":/^Lồng tiếng/.test(it.k)?"vo":/^Chữ trên hình/.test(it.k)?"ost":""}">${inline(it.v)}</dd>`).join("")}</dl>`; }
-function renderShoot(body, sc, focus){
-  const parts = sc.sections.filter(s => s.kind !== "list");
-  const jump = `<nav class="jump" aria-label="Nhảy tới">${parts.map(s=>`<a href="#${s.kind==="day"?"d"+s.d:s.id}">${s.kind==="day"?"Ngày "+s.d:esc(s.title.replace(/\s*\(.*\)$/,""))}</a>`).join("")}</nav>`;
-  body.innerHTML = `<p class="notice small" style="font-size:14px">${inline(sc.meta["Cách đọc"])}</p>${jump}` + parts.map(s => {
-    const done = s.beats.filter(b=>S.beats[b.key]&&S.beats[b.key].shot).length, o = s.kind==="day" ? dayObj(s.d) : null;
-    return `<section class="vsec" id="${s.kind==="day"?"d"+s.d:s.id}">
-      <p class="vid">${s.kind==="day"?`Ngày ${s.d} · ${esc(s.when)}${o?` · ${esc(o.city)}`:""}`:"Phần dựng"}</p>
-      <h2 class="disp">${esc(s.title)}</h2>
-      ${s.q?`<p class="promise">${esc(s.q)}</p>`:""}
-      <div class="meta-line"><span class="tag ${done===s.beats.length?"":"soft"}">${done}/${s.beats.length} cảnh</span>${o&&o.map?`<a class="tag soft" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.map)}" target="_blank" rel="noopener">Bản đồ</a>`:""}${o?`<button class="tag soft linkish" data-day="${o.d}">Lịch ngày này</button>`:""}</div>
-      ${s.beats.map(b => beatHTML(b)).join("")}
-    </section>`; }).join("") +
-    sc.sections.filter(s=>s.kind==="list").map(s=>`<section class="sec notice"><b>${esc(s.title)}</b><ul style="margin:8px 0 0;padding-left:20px">${s.list.map(x=>`<li>${inline(x)}</li>`).join("")}</ul></section>`).join("") +
-    `<p class="small muted" style="margin-top:30px">Đánh dấu cảnh ngay sau khi quay. Ghi chú hiện trường là chỗ ghi giá thật và câu Pum đã nói. Claude dùng ghi chú này khi sửa lời lồng tiếng và viết mô tả.</p>`;
+function secKey(s){ return s.kind === "day" ? "d" + s.d : s.id; }
+function renderShoot(body, sc, focus, st){
+  const parts = sc.sections.filter(s => s.kind !== "list"), lists = sc.sections.filter(s => s.kind === "list");
+  const keys = parts.map(secKey).concat(lists.length ? ["ghichu"] : []);
+  const store = "shootSec" + st.n;
+  let cur = focus || LS.get(store, null);
+  if (!keys.includes(cur)){ const t = tripDay(); const td = parts.find(p => p.kind === "day" && p.d === t); cur = td ? secKey(td) : keys[0]; }
+  if (focus) LS.set(store, cur);
+  const label = s => s.kind === "day" ? `Ngày ${s.d}<small>${esc(s.when.split(" ")[1]||"")}</small>` : `${esc(s.title.replace(/\s*\(.*\)$/,""))}<small>phần dựng</small>`;
+  const done = s => s.beats.length && s.beats.every(b => S.beats[b.key] && S.beats[b.key].shot);
+  const idx = keys.indexOf(cur), sec = parts.find(p => secKey(p) === cur);
+  const nameOf = k => { if (k === "ghichu") return "Sổ tiền và ghi chú"; const p = parts.find(x => secKey(x) === k); return p.kind === "day" ? `Ngày ${p.d} · ${p.title}` : p.title.replace(/\s*\(.*\)$/,""); };
+  let html = `<nav class="daypick" aria-label="Chọn phần">${parts.map(p => `<button data-sec="${secKey(p)}" aria-pressed="${secKey(p)===cur}" class="${done(p)?"done":""}">${label(p)}</button>`).join("")}${lists.length?`<button data-sec="ghichu" aria-pressed="${cur==="ghichu"}">Ghi chú<small>sổ tiền</small></button>`:""}</nav>`;
+  if (sec){
+    const n = sec.beats.filter(b=>S.beats[b.key]&&S.beats[b.key].shot).length, o = sec.kind==="day" ? dayObj(sec.d) : null;
+    html += `<section class="vsec" style="border-top:0;margin-top:8px;padding-top:6px" id="${cur}">
+      <p class="vid">${sec.kind==="day"?`${esc(sec.when)}${o?` · ${esc(o.city)}`:""}`:"Phần dựng"}</p>
+      <h2 class="disp">${esc(sec.title)}</h2>
+      ${sec.q?`<p class="promise">${esc(sec.q)}</p>`:""}
+      <div class="row" style="margin-top:12px"><span class="tag ${n===sec.beats.length?"":"soft"}" style="margin:0">${n}/${sec.beats.length} cảnh</span>${o&&o.map?`<a class="btn small ghost" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.map)}" target="_blank" rel="noopener">Bản đồ</a>`:""}${o?`<button class="btn small ghost" data-day="${o.d}">Lịch ngày này</button>`:""}</div>
+      ${idx===0?`<p class="notice small" style="font-size:14px;margin-top:16px">${inline(sc.meta["Cách đọc"])}</p>`:""}
+      ${sec.beats.map(b => beatHTML(b)).join("")}
+    </section>`;
+  } else {
+    html += lists.map(s=>`<section class="sec card" style="margin-top:14px"><h2 class="disp" style="font-size:22px;margin-bottom:8px">${esc(s.title)}</h2><ul style="margin:0;padding-left:20px">${s.list.map(x=>`<li style="margin:6px 0">${inline(x)}</li>`).join("")}</ul></section>`).join("");
+  }
+  const pv = keys[idx-1], nx = keys[idx+1];
+  html += `<div class="pager"><button data-sec="${pv||""}" ${pv?"":"disabled"}><small>Trước</small>${pv?esc(nameOf(pv)):""}</button><button class="nx" data-sec="${nx||""}" ${nx?"":"disabled"}><small>Tiếp theo</small>${nx?esc(nameOf(nx)):""}</button></div>`;
+  body.innerHTML = html;
   bindBeats(body);
   body.querySelectorAll("[data-day]").forEach(b => b.onclick = () => openDay(Number(b.dataset.day)));
-  body.querySelectorAll(".jump a").forEach(a => a.onclick = e => { e.preventDefault(); const el = document.getElementById(a.getAttribute("href").slice(1)); if (el) el.scrollIntoView({block:"start", behavior:"smooth"}); });
-  if (focus){ const el = document.getElementById(focus); if (el) setTimeout(()=>el.scrollIntoView({block:"start"}), 60); }
+  body.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => { if (!b.dataset.sec) return; LS.set(store, b.dataset.sec); if (/\/d\d+$/.test(location.hash)) history.replaceState(null, "", "#/san-xuat/" + st.n); const top = b.closest(".pager"); renderShoot(body, sc, null, st); if (top){ const dp = body.querySelector(".daypick"); window.scrollTo({top: dp.getBoundingClientRect().top + scrollY - 70}); } });
+  const on = body.querySelector('.daypick [aria-pressed="true"]'); if (on) on.scrollIntoView({block:"nearest", inline:"center"});
 }
 function beatHTML(b){
   const x = S.beats[b.key] || {}; const att = (x.clips||[]).length + (x.voices||[]).length;
   return `<div class="beat ${x.shot?"is-shot":""}" data-key="${b.key}">
-    <label class="beat-h"><input type="checkbox" class="shot" data-shot="${b.key}" ${x.shot?"checked":""}><span class="bt">${esc(b.title)}</span><span class="meta">${x.shot?"đã quay":""}</span></label>
+    <div class="beat-h2"><span class="bt">${esc(b.title)}</span><button type="button" class="shotbtn" data-shot="${b.key}" aria-pressed="${!!x.shot}"><i aria-hidden="true"></i>${x.shot?"Đã quay":"Chưa quay"}</button></div>
     <div class="body">
       ${itemsHTML(b.items)}
       <details class="tools-d" ${x._open?"open":""}>
@@ -427,7 +448,7 @@ function beatHTML(b){
 }
 function bindBeats(body){
   body.querySelectorAll(".beat").forEach(d => { const t = d.querySelector("details.tools-d"); if (t) t.addEventListener("toggle", () => { const k=d.dataset.key; S.beats[k]=Object.assign({},S.beats[k]||{},{_open:t.open}); }); });
-  body.querySelectorAll("[data-shot]").forEach(c => c.onchange = () => put("beats", c.dataset.shot, {shot:c.checked, shotAt: c.checked?Date.now():null}));
+  body.querySelectorAll("[data-shot]").forEach(c => c.onclick = () => { const on = c.getAttribute("aria-pressed") !== "true"; put("beats", c.dataset.shot, {shot:on, shotAt: on?Date.now():null}); });
   body.querySelectorAll("[data-savenote]").forEach(b => b.onclick = async () => { const k=b.dataset.savenote; await put("beats", k, {note: document.getElementById("note-"+k).value, _open:true}); toast("Đã lưu ghi chú"); });
   body.querySelectorAll("[data-addlink]").forEach(b => b.onclick = async () => {
     const k=b.dataset.addlink, u=document.getElementById("link-"+k).value.trim(); if(!/^https?:\/\//.test(u)){ toast("Link cần bắt đầu bằng https://"); return; }
@@ -485,11 +506,10 @@ function renderPublish(body, sc, st){
   const steps = [[s.shot===s.tot,"Quay đủ"],[!!x.drive,"Footage lên Drive"],[!!(x.title&&x.thumb),"Tên và thumbnail"],[!!x.chapters&&!/__:__/.test(x.chapters),"Chương"],[!!x.request,"Gửi dựng"],[!!x.posted,"Lên YouTube"],[tiks.length&&tdone===tiks.length,`TikTok ${tdone}/${tiks.length}`]];
   const th = x.thumbCity ? x : {thumbCity:st.city, thumbL1:st.labels[0], thumbL2:st.labels[1], thumbL3:st.labels[2]};
   body.innerHTML = `
-  <p class="muted" style="max-width:62ch">Một tập dài lên YouTube trước, rồi cắt TikTok từ chính tập đó. Mô tả và chữ trên hình chỉ nói điều Pum đã làm thật, giá có nơi và ngày.</p>
-  <section class="pub">
-    <p class="vid" style="font-weight:900;color:var(--berry)">Tập ${st.n} · đăng dự kiến ${esc(x.postDate || st.post)} · dài ${esc(st.len)}</p>
-    <h3 class="disp">${esc(st.place)}</h3>
-    <div class="steps">${steps.map(([ok,t])=>`<span class="${ok?"ok":""}">${t}</span>`).join("")}</div>
+  <div class="card"><p class="eyebrowless" style="margin-bottom:8px">Tiến độ tập ${st.n}</p><div class="steps" style="margin:0">${steps.map(([ok,t])=>`<span class="${ok?"ok":""}">${t}</span>`).join("")}</div><p class="small muted" style="margin-top:10px">Ô nào điền xong tự lưu. Mô tả và chữ trên hình chỉ nói điều Pum đã làm thật, giá có nơi và ngày.</p></div>
+  <div class="pubs">
+  <section class="pub ${x.drive&&x.title?"ok":""}">
+    <h3 class="disp">Footage và tên tập</h3>
     <div class="grid2" style="gap:14px">
       <label class="f">Link thư mục Google Drive (footage và giọng thu)<input type="url" id="pb-drive" value="${esc(x.drive||"")}" placeholder="https://drive.google.com/…"></label>
       <label class="f">Ngày đăng<input type="text" id="pb-postDate" value="${esc(x.postDate||"")}" placeholder="${esc(st.post)}"></label>
@@ -499,11 +519,11 @@ function renderPublish(body, sc, st){
   </section>
   <section class="pub">
     <h3 class="disp">Hiệu ứng của tập</h3>
-    <p class="small muted" style="margin-bottom:12px">Nền xanh cho CapCut (Xóa nền › Phông xanh). Chuyển cảnh chung và cách dùng ở tab Kênh.</p>
+    <p class="small muted" style="margin-bottom:12px">Nền xanh cho CapCut (Xóa nền › Phông xanh). Chuyển cảnh chung và cách dùng ở Cẩm nang › Hiệu ứng.</p>
     <div class="fxrow">${fxVid(`fx/youtube/mo_tap_${st.n}.webm`)}<div><b>Mở tập ${st.n}</b>${fxLinks([["Nền xanh",`fx/youtube/mo_tap_${st.n}_nenxanh.mp4`],["Nền trong",`fx/youtube/mo_tap_${st.n}.webm`]])}</div></div>
     <ul class="fxdays">${T.days.filter(d=>d.st===st.n).map(d=>{const n=String(d.d).padStart(2,"0");return `<li><span>Thẻ ngày ${d.d}</span>${fxLinks([["Nền xanh",`fx/youtube/the_ngay/the_ngay_${n}_nenxanh.mp4`],["Nền trong",`fx/youtube/the_ngay/the_ngay_${n}.webm`]])}</li>`}).join("")}</ul>
   </section>
-  <section class="pub">
+  <section class="pub ${x.thumb?"ok":""}">
     <h3 class="disp">Thumbnail</h3>
     <p class="small muted" style="margin-bottom:12px">Một ảnh Pum ở giữa, tên nơi thật to, ba nhãn ngắn là ba điều có trong tập. Chọn ảnh có mặt Pum và cảnh nơi đó, không dùng ảnh người khác.</p>
     <div class="thumb" aria-label="Xem trước bố cục thumbnail"><b class="tc">${esc(th.thumbCity)}</b><span class="t1">${esc(th.thumbL1)}</span><span class="t2">${esc(th.thumbL2)}</span><span class="t3">${esc(th.thumbL3)}</span><img src="brand/camera.png" alt=""></div>
@@ -515,7 +535,7 @@ function renderPublish(body, sc, st){
     </div>
     <label class="f" style="margin-top:14px">Link ảnh thumbnail đã làm<input type="url" id="pb-thumb" value="${esc(x.thumb||"")}" placeholder="https://drive.google.com/…"></label>
   </section>
-  <section class="pub">
+  <section class="pub ${x.desc&&x.chapters&&!/__:__/.test(x.chapters)?"ok":""}">
     <h3 class="disp">Mô tả và chương</h3>
     <label class="f">Chương (dựng xong mới điền giờ thật vào chỗ __:__)<textarea id="pb-chapters" style="min-height:220px;font-variant-numeric:tabular-nums">${esc(x.chapters || chaptersFrom(sc))}</textarea></label>
     <label class="f" style="margin-top:14px">Mô tả YouTube<textarea id="pb-desc" style="min-height:160px">${esc(x.desc||"")}</textarea></label>
@@ -523,25 +543,28 @@ function renderPublish(body, sc, st){
     <p class="small muted" style="margin-top:8px">Hashtag: #thudicungpum ${esc(T.tag)}</p>
     ${S.sample?`<button class="btn small ghost" style="margin-top:10px" data-desc="1">Nhờ Claude viết mô tả</button>`:""}
   </section>
-  <section class="pub">
+  <section class="pub ${tiks.length&&tdone===tiks.length?"ok":""}">
     <h3 class="disp">TikTok cắt từ tập này</h3>
     <p class="small muted" style="margin-bottom:10px">Cắt sau khi tập dài đã lên. Mỗi clip 30–60 giây, chữ mở trên băng hồng, cuối clip nhắc “Tập đầy đủ trên YouTube”.</p>
     ${tiks.length?tiks.map((t,i)=>`<div class="tk"><span>${inline(t)}</span><input type="url" id="tk-${i}" value="${esc((tx[i]||{}).url||"")}" placeholder="Link TikTok khi đã đăng"></div>`).join(""):`<p class="muted">Kịch bản chưa có danh sách TikTok.</p>`}
   </section>
   ${money?`<section class="pub"><h3 class="disp">${esc(money.title)}</h3><ul style="margin:0;padding-left:20px">${money.list.map(t=>`<li>${inline(t)}</li>`).join("")}</ul><p class="small muted" style="margin-top:8px">Lấy số thật trong <a href="#/chi-tieu">Chi tiêu</a> để điền bảng chữ khi dựng.</p></section>`:""}
-  ${check?`<section class="pub"><h3 class="disp">${esc(check.title)}</h3><ul class="check">${check.list.map((t,i)=>{const ok=(x.checks||{})[i];return `<li class="${ok?"done":""}"><input type="checkbox" id="ck-${i}" data-ck="${i}" ${ok?"checked":""}><label for="ck-${i}"><span>${inline(t)}</span></label></li>`}).join("")}</ul></section>`:""}
-  <section class="pub">
+  ${check?`<section class="pub ${check.list.every((_,i)=>(x.checks||{})[i])?"ok":""}"><h3 class="disp">${esc(check.title)}</h3><ul class="check">${check.list.map((t,i)=>{const ok=(x.checks||{})[i];return `<li class="${ok?"done":""}"><input type="checkbox" id="ck-${i}" data-ck="${i}" ${ok?"checked":""}><label for="ck-${i}"><span>${inline(t)}</span></label></li>`}).join("")}</ul></section>`:""}
+  <section class="pub ${x.posted?"ok":""}">
+    <h3 class="disp">Đăng lên YouTube</h3>
     <label class="f">Link tập đã lên YouTube<input type="url" id="pb-posted" value="${esc(x.posted||"")}" placeholder="https://youtu.be/…"></label>
     <div class="row" style="margin-top:14px">
       <button class="btn" data-savepub="1">Lưu</button>
-      <button class="btn rose" data-send="1" ${x.drive?"":"disabled"}>${x.request?"Gửi lại phiếu dựng":"Gửi Claude dựng"}</button>
+      <button class="btn rose" data-send="1" ${x.drive?"":"disabled"}>${x.request?"Gửi lại phiếu dựng":"Gửi phiếu dựng cho Claude"}</button>
     </div>
     ${x.request?`<p class="small muted" style="margin-top:8px">Đã gửi lúc ${new Date(x.request.at).toLocaleString("vi-VN")}. Nhắn Claude trong project Pum: “Dựng tập ${st.n} từ Pum Studio”.</p>`:(!x.drive?`<p class="small muted" style="margin-top:8px">Cần link Drive trước khi gửi dựng.</p>`:"")}
-  </section>`;
+  </section>
+  </div>`;
   const F = ["drive","postDate","title","thumbCity","thumbL1","thumbL2","thumbL3","thumb","chapters","desc","posted"];
   const collect = () => { const o = {}; F.forEach(f => { const el = document.getElementById("pb-"+f); if (el) o[f] = f==="chapters"||f==="desc" ? el.value : el.value.trim(); }); const t = {}; tiks.forEach((_,i)=>{ const u = (document.getElementById("tk-"+i)||{}).value; t[i] = {url:(u||"").trim()}; }); o.tiktok = t; return o; };
   const save = (extra={}) => put("vids", id, Object.assign(collect(), extra));
   body.querySelectorAll("[data-savepub]").forEach(b => b.onclick = async () => { await save(); toast("Đã lưu tập "+st.n); });
+  body.querySelectorAll('input[id^="pb-"],textarea[id^="pb-"],input[id^="tk-"]').forEach(el => { el.dataset.keep = "0"; el.addEventListener("change", () => save()); });
   body.querySelectorAll("[data-fill]").forEach(b => b.onclick = async () => { await save({title: sc.meta["Tên tập"]}); });
   body.querySelectorAll("[data-usedesc]").forEach(b => b.onclick = async () => { await save({desc: x.descDraft}); });
   body.querySelectorAll("[data-ck]").forEach(c => c.onchange = async () => { await save({checks: Object.assign({}, x.checks||{}, {[c.dataset.ck]: c.checked})}); });
@@ -573,7 +596,9 @@ const FX = [
   ["tim","Tim nở","1 giây. Dùng một lần mỗi tập, ngay trước kết quả bạn chọn. Cắt cảnh ở giây 0,5."],
   ["trang_giay","Trang giấy","0,9 giây. Dùng trước bảng chữ: sổ tiền, hộp kỷ niệm, chín lần bạn chọn. Cắt cảnh ở giây 0,4."]
 ];
-function fxVid(src, tall){ return `<button type="button" class="fxv ${tall?"tall":""}" aria-label="Xem to"><video data-src="${src}" muted playsinline preload="none"></video></button>`; }
+const FXBG = ["bosang","chatuchak","maeklong","chouifong","indigo","paiwalk","mekong2","iconsiam","srisuphan","bangkrachao","amphawa","singha"];
+let fxbgI = 0;
+function fxVid(src, tall){ const bg = FXBG[(fxbgI++) % FXBG.length]; return `<button type="button" class="fxv ${tall?"tall":""}" style="background-image:url(img/${bg}.jpg)" aria-label="Xem to"><video data-src="${src}" muted playsinline preload="none"></video></button>`; }
 function fxLinks(arr){ return `<p class="fxl">${arr.map(([t,u])=>`<button type="button" data-dl="${u}">${t}</button>`).join("")}</p>`; }
 document.addEventListener("click", async e => {
   const b = e.target.closest("[data-dl]"); if (!b) return;
@@ -589,11 +614,11 @@ document.addEventListener("click", async e => {
 function fxCard(src, title, desc, links, tall){
   return `<div class="fxc">${fxVid(src, tall)}<b>${title}</b>${desc?`<span>${desc}</span>`:""}${fxLinks(links)}</div>`;
 }
-function vFx(v){
-  const eps = T.stages;
+function vFx(v, embed){
+  const eps = T.stages; fxbgI = 0;
   v.innerHTML = `
-  <section><h1 class="disp h-hero">Hiệu ứng</h1>
-    <p class="lead" style="margin-top:14px;max-width:62ch">Phần lớn tập dài là cắt thẳng theo hành động. Hiệu ứng chỉ dùng ở chỗ đổi nơi, đổi ngày, mở tập và cuối tập. Bấm vào một hiệu ứng để xem to.</p></section>
+  <section><p class="lead" style="max-width:62ch">Phần lớn tập dài là cắt thẳng theo hành động. Hiệu ứng chỉ dùng ở chỗ đổi nơi, đổi ngày, mở tập và cuối tập. Bấm vào một hiệu ứng để xem to.</p></section>
+  <nav class="fxjump"><div class="seg" style="margin:0"><a href="#fx-cc">Chuyển cảnh</a><a href="#fx-mo">Mở tập</a><a href="#fx-ngay">Thẻ ngày</a><a href="#fx-cuoi">Cuối tập</a></div></nav>
   <section class="sec strip">
     <h2 class="disp" style="font-size:24px;margin-bottom:12px">Dùng trong CapCut</h2>
     <ol class="steps3">
@@ -604,26 +629,27 @@ function vFx(v){
     <p class="small muted" style="margin-top:10px">Bản “nền trong” (.webm) dùng cho trình dựng đọc được nền trong suốt, như DaVinci Resolve.</p>
   </section>
   <section class="sec">
-    <h2 class="disp h-sec" style="margin-bottom:14px">Chuyển cảnh</h2>
+    <h2 class="disp h-sec" id="fx-cc" style="margin-bottom:14px;scroll-margin-top:130px">Chuyển cảnh</h2>
     <div class="fxgrid">${FX.map(([k,n,d])=>fxCard(`fx/youtube/chuyen_canh_${k}.webm`, n, d, [["YouTube nền xanh",`fx/youtube/chuyen_canh_${k}_nenxanh.mp4`],["TikTok nền xanh",`fx/tiktok/chuyen_canh_${k}_nenxanh.mp4`],["Nền trong",`fx/youtube/chuyen_canh_${k}.webm`]])).join("")}</div>
   </section>
   <section class="sec">
-    <h2 class="disp h-sec" style="margin-bottom:6px">Mở tập</h2>
+    <h2 class="disp h-sec" id="fx-mo" style="margin-bottom:6px;scroll-margin-top:130px">Mở tập</h2>
     <p class="muted" style="margin-bottom:14px">4 giây. Đặt ngay sau phần mở bằng câu hỏi, trên cảnh Pum đầu tiên.</p>
     <div class="fxgrid">${eps.map(e=>fxCard(`fx/youtube/mo_tap_${e.n}.webm`, `Tập ${e.n} · ${esc(e.place)}`, "", [["Nền xanh",`fx/youtube/mo_tap_${e.n}_nenxanh.mp4`],["Nền trong",`fx/youtube/mo_tap_${e.n}.webm`]])).join("")}</div>
   </section>
   <section class="sec">
-    <h2 class="disp h-sec" style="margin-bottom:6px">Thẻ ngày</h2>
+    <h2 class="disp h-sec" id="fx-ngay" style="margin-bottom:6px;scroll-margin-top:130px">Thẻ ngày</h2>
     <p class="muted" style="margin-bottom:14px">2,5 giây. Đặt ở cảnh đầu mỗi ngày. Tên ngày lấy theo kịch bản.</p>
-    ${eps.map(e=>`<h3 class="fxh">Tập ${e.n} · ${esc(e.place)}</h3><div class="fxgrid">${T.days.filter(d=>d.st===e.n).map(d=>{const n=String(d.d).padStart(2,"0");return fxCard(`fx/youtube/the_ngay/the_ngay_${n}.webm`, `Ngày ${d.d} · ${esc(d.date)}`, "", [["Nền xanh",`fx/youtube/the_ngay/the_ngay_${n}_nenxanh.mp4`],["Nền trong",`fx/youtube/the_ngay/the_ngay_${n}.webm`]])}).join("")}</div>`).join("")}
+    ${eps.map(e=>`<h3 class="fxh">Tập ${e.n} · ${esc(e.place)}</h3><div class="fxgrid days">${T.days.filter(d=>d.st===e.n).map(d=>{const n=String(d.d).padStart(2,"0");return fxCard(`fx/youtube/the_ngay/the_ngay_${n}.webm`, `Ngày ${d.d} · ${esc(d.date)}`, "", [["Nền xanh",`fx/youtube/the_ngay/the_ngay_${n}_nenxanh.mp4`],["Nền trong",`fx/youtube/the_ngay/the_ngay_${n}.webm`]])}).join("")}</div>`).join("")}
   </section>
   <section class="sec">
-    <h2 class="disp h-sec" style="margin-bottom:14px">Cuối tập và cuối clip</h2>
+    <h2 class="disp h-sec" id="fx-cuoi" style="margin-bottom:14px;scroll-margin-top:130px">Cuối tập và cuối clip</h2>
     <div class="fxgrid">
       ${fxCard("fx/youtube/ket_tap_youtube.mp4","Kết tập YouTube","8 giây, nền kem. Hai ô hồng và vòng tròn là chỗ đặt màn hình kết thúc của YouTube (video tiếp theo, nút đăng ký).",[["Tải về","fx/youtube/ket_tap_youtube.mp4"]])}
       ${fxCard("fx/tiktok/tiktok_ket.webm","Cuối clip TikTok","2,5 giây, dọc. Ghép vào cuối mỗi clip TikTok cắt từ tập dài.",[["Nền xanh","fx/tiktok/tiktok_ket_nenxanh.mp4"],["Nền trong","fx/tiktok/tiktok_ket.webm"]],true)}
     </div>
   </section>`;
+  v.querySelectorAll(".fxjump a").forEach(a => a.onclick = e => { e.preventDefault(); const el = document.getElementById(a.getAttribute("href").slice(1)); if (el) el.scrollIntoView({behavior:"smooth"}); });
   fxWire(v);
 }
 let fxIO = null;
@@ -656,7 +682,19 @@ function bindDict(root){
 }
 
 /* ---------- Kênh ---------- */
-function vBrand(v){
+const GUIDE = [["","Cách làm"],["truoc","Trước chuyến"],["hieu-ung","Hiệu ứng"],["thuong-hieu","Thương hiệu"]];
+function vBrand(v, r){
+  const sub = (r && r.a) || "";
+  const head = `<section><h1 class="disp h-hero">Cẩm nang</h1></section><nav class="seg" aria-label="Phần" style="margin-top:20px">${GUIDE.map(([k,n])=>`<a href="#/kenh${k?"/"+k:""}" ${k===sub?'aria-current="page"':''}>${n}</a>`).join("")}</nav>`;
+  if (sub === "hieu-ung"){ const box = document.createElement("div"); vFx(box, true); v.innerHTML = head; v.appendChild(box); return; }
+  vBrandAll(v);
+  const tags = ["th","cach","truoc","truoc","x","cach","cach","th","th","th","th","th"];
+  const want = {"":"cach","truoc":"truoc","thuong-hieu":"th"}[sub] || "cach";
+  [...v.children].forEach((el, i) => { if (tags[i] !== want) el.remove(); });
+  v.insertAdjacentHTML("afterbegin", head);
+  const first = v.children[2]; if (first) first.style.marginTop = "8px";
+}
+function vBrandAll(v){
   v.innerHTML = `
   <section class="hero">
     <div><img src="brand/logo.png" alt="Pum" style="height:96px;width:auto;display:block">
