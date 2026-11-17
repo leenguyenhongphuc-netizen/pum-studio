@@ -149,7 +149,16 @@ input:focus,select:focus,textarea:focus{border-color:var(--rose);outline:none}
 .st-tabs a{flex:0 0 auto;padding:8px 14px;text-decoration:none;font-weight:800;color:var(--muted);border-radius:999px}
 .st-tabs a[aria-current=page]{background:var(--ink);color:var(--paper)}
 .st-tabs a.test{border:2px dashed var(--rose);color:var(--berry)}.st-tabs a.test[aria-current=page]{background:var(--berry);border-color:var(--berry);color:#fff}
-dd.maps{display:flex;flex-wrap:wrap;gap:8px}.testnote{margin:-14px 0 18px}
+dd.maps{display:flex;flex-wrap:wrap;gap:8px}.testnote{margin:-14px 0 12px}
+.vtoggle{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:760px;min-height:60px;margin:0 0 20px;padding:12px 16px 12px 18px;background:var(--paper);border-radius:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.vtoggle .vt-txt{display:flex;flex-direction:column;gap:2px;min-width:0}.vtoggle b{font-size:16px;color:var(--ink)}.vtoggle small{font-size:14px;color:var(--muted);line-height:1.4}
+.vtoggle input{position:absolute;opacity:0;width:1px;height:1px}
+.vtoggle .sw{flex:0 0 auto;position:relative;width:52px;height:32px;border-radius:999px;background:var(--line);transition:background .18s}
+.vtoggle .sw::after{content:"";position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(57,38,48,.25);transition:transform .18s}
+.vtoggle input:checked+.sw{background:var(--berry)}.vtoggle input:checked+.sw::after{transform:translateX(20px)}
+.vtoggle input:focus-visible+.sw{outline:3px solid var(--rose);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.vtoggle .sw,.vtoggle .sw::after{transition:none}}
+
 .testcard{border:2px dashed var(--rose)}
 .st-head{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:30px;align-items:center}
 @media (max-width:760px){.st-head{grid-template-columns:1fr}.st-head .post{order:-1;max-width:240px}}
@@ -415,6 +424,6 @@ details.prev{margin-top:48px;color:var(--muted)}details.prev>summary{cursor:poin
   document.addEventListener("visibilitychange", function(){ if (!document.hidden) check(); });
   setTimeout(check, 5000);
 })();
-</script><script>window.PUMV='1794880904'</script><script src="gate.js?v=1794880904"></script>
+</script><script>window.PUMV='1794881585'</script><script src="gate.js?v=1794881585"></script>
 </body>
 </html>

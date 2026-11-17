@@ -366,16 +366,18 @@ function vProd(v, r){
   const dNow = Math.max(1, Math.min(28, tripDay()));
   const isTest = r.a === "test" && !!T.test;
   const n = isTest ? "test" : (Number(r.a) || dayObj(dNow).st);
-  const st = isTest ? T.test : (stObj(n) || stObj(1)); const focus = r.b && /^d\d+$/.test(r.b) ? r.b : null;
+  const st = isTest ? T.test : (stObj(n) || stObj(1));
+  const late = isTest && LS.get("testVer", "") === "muon", scN = late ? "testlate" : st.n; const focus = r.b && /^d\d+$/.test(r.b) ? r.b : null;
   if (focus) prodTab = "quay";
   const x = S.vids["ep"+st.n] || {};
   v.innerHTML = `
   <nav class="st-tabs" aria-label="Chọn tập">${T.test?`<a class="test" href="#/san-xuat/test" ${st.test?'aria-current="page"':''}>${esc(T.test.tab)}</a>`:""}${T.stages.map(s=>`<a href="#/san-xuat/${s.n}" ${s.n===st.n?'aria-current="page"':''}>Tập ${s.n} · ${esc(s.place.split(":")[0])}</a>`).join("")}</nav>
-  ${st.test?`<p class="notice small testnote">Tập quay thử trước chuyến Thái: tập cách quay, cách nói tại chỗ và cách thu lồng tiếng sau. Mỗi cảnh có thêm mục <b>Bài tập</b>; cuối ngày điền phần <b>Bài test</b> trong mục Ghi chú.</p>`:""}
+  ${st.test?`<p class="notice small testnote">Tập quay thử trước chuyến Thái: tập cách quay, cách nói tại chỗ và cách thu lồng tiếng sau. Mỗi cảnh có thêm mục <b>Bài tập</b>; cuối ngày điền phần <b>Bài test</b> trong mục Ghi chú.</p>
+  <label class="vtoggle"><span class="vt-txt"><b>Bản dậy muộn</b><small>8 giờ dậy, 9 giờ mới đi. Chỉ đổi buổi sáng, chiều giữ nguyên.</small></span><input type="checkbox" id="lateTog" role="switch" ${late?"checked":""}><span class="sw" aria-hidden="true"></span></label>`:""}
   <section class="ephead">
     <img src="${img(st.img)}" alt="">
     <div>
-      <p class="eyebrowless">${st.test?`Tập test · ${esc(st.when)} · ${esc(st.len)}`:`Tập ${st.n} · ngày ${st.days[0]}–${st.days[1]} · ${esc(st.len)} · đăng ${esc(x.postDate || st.post)}`}</p>
+      <p class="eyebrowless">${st.test?`Tập test · ${late?"bản dậy muộn":esc(st.when)} · ${esc(st.len)}`:`Tập ${st.n} · ngày ${st.days[0]}–${st.days[1]} · ${esc(st.len)} · đăng ${esc(x.postDate || st.post)}`}</p>
       <h1 class="disp">${esc(st.place)}</h1>
       <div id="stProg" class="muted small">Đang mở kịch bản…</div>
     </div>
@@ -387,7 +389,8 @@ function vProd(v, r){
   </div>
   <div id="prodBody"></div>`;
   v.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { prodTab = b.dataset.tab; LS.set("prodTab", prodTab); render(); });
-  loadScript(st.n).then(sc => {
+  const lt = v.querySelector("#lateTog"); if (lt) lt.onchange = () => { LS.set("testVer", lt.checked ? "muon" : ""); TTS.stop(); render(); };
+  loadScript(scN).then(sc => {
     if (route().k !== "san-xuat") return;
     const body = $("#prodBody"); if (!body) return;
     if (sc.error){ body.innerHTML = `<p class="notice">Chưa mở được kịch bản tập này. Tải lại trang thử.</p>`; return; }
