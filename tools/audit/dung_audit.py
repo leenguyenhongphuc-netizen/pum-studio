@@ -2,7 +2,7 @@
 # Chạy: python3 -m http.server 8770 (ở thư mục web có bản nháp giả) rồi PUM_PASS=... python3 dung_audit.py p412 t820 d1920
 import asyncio, json, sys, os
 from playwright.async_api import async_playwright
-ROWS=json.load(open('os.path.join(os.path.dirname(__file__),"mock_rows.json")'))
+ROWS=json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),'mock_rows.json')))
 DEV=[("p412",412,915),("i390",390,844),("t820",820,1180),("t1180",1180,820),("d1366",1366,768),("d1920",1920,1080)]
 METRIC="""()=>{const vis=e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&getComputedStyle(e).visibility!=='hidden'};
 const small=[...document.querySelectorAll('#view button,#view a,#view label.btn,#view input:not([type=file]),#view textarea,#view summary,#view [role=button]')].filter(vis).filter(e=>{const r=e.getBoundingClientRect();return r.height<44||(r.width<44&&!e.matches('a:not(.btn)'))}).map(e=>(e.className||e.tagName).toString().slice(0,24)+':'+Math.round(e.getBoundingClientRect().width)+'x'+Math.round(e.getBoundingClientRect().height));
