@@ -5,7 +5,7 @@
 import asyncio, json, os
 from playwright.async_api import async_playwright
 ROWS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "mock_rows.json")))
-DEV = [("p412",412,915),("i390",390,844),("t820",820,1180),("t1180",1180,820),("d1366",1366,768),("d1920",1920,1080)]
+DEV = [("p412",412,915),("i390",390,844),("t820",820,1180),("t1180",1180,820),("t1280",1280,800),("d1366",1366,768),("d1920",1920,1080)]
 POS = "(s)=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return [Math.round(r.top),Math.round(e.scrollLeft)]}"
 async def page(b, w, h):
     ctx = await b.new_context(viewport={"width":w,"height":h}); pg = await ctx.new_page()

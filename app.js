@@ -872,20 +872,24 @@ function stepSend(sb, sc, st, e, stats){
   <section class="pub">
     <h3 class="disp">Gửi cho AI xem</h3>
     <div class="kpis"><div><b class="num">${stats.clips}</b><span>clip</span></div><div><b class="num">${fmtT(stats.dur)}</b><span>tổng thời lượng</span></div><div><b class="num">${stats.withClip}/${stats.beats}</b><span>cảnh có clip</span></div><div><b class="num">${fmtSize(stats.size) || "0 MB"}</b><span>dung lượng</span></div></div>
-    ${missing.length ? `<details class="miss"><summary>${missing.length} cảnh chưa có clip</summary><ul>${missing.map(m => `<li>${esc(m)}</li>`).join("")}</ul><p class="small muted">Vẫn gửi được. AI sẽ dựng với những gì có và báo chỗ nào thiếu.</p></details>` : `<p class="ok-line">Cảnh nào cũng đã có clip.</p>`}
-    <ol class="howto">
-      <li><b>Bấm “Gửi cho AI”</b> để AI biết clip nào thuộc cảnh nào.</li>
-      <li><b>Mở chat Claude trong project Pum Content Studio</b>, đính kèm đúng các file đã gắn (danh sách ở dưới).</li>
-      <li><b>Nhắn câu này:</b> <code>${esc(msg)}</code></li>
+    ${!stats.clips ? `<div class="empty"><p><b>Chưa gắn clip nào.</b> Gắn clip vào từng cảnh ở bước 1 rồi quay lại đây gửi cho AI.</p><button class="btn" data-gostep="1">Về bước 1 · Gắn clip</button></div>`
+      : missing.length ? `<details class="miss"><summary>${missing.length} cảnh chưa có clip</summary><ul>${missing.map(m => `<li>${esc(m)}</li>`).join("")}</ul><p class="small muted">Vẫn gửi được. AI dựng với những gì có và báo chỗ nào thiếu.</p></details>` : `<p class="ok-line">Cảnh nào cũng đã có clip.</p>`}
+    <ol class="sendsteps">
+      <li><span class="sn" aria-hidden="true">1</span><div><b>Bấm gửi cho AI</b><p>Để AI biết clip nào thuộc cảnh nào.</p>
+        <button class="btn rose" data-sendai="1" ${stats.clips ? "" : "disabled"}>${e.sentAt ? "Gửi lại cho AI" : "Gửi cho AI"}</button>
+        ${!stats.clips ? `<p class="small muted why">Cần gắn ít nhất 1 clip trước.</p>` : e.sentAt ? `<p class="small muted why">Đã gửi lúc ${new Date(e.sentAt).toLocaleString("vi-VN")}.</p>` : ""}</div></li>
+      <li><span class="sn" aria-hidden="true">2</span><div><b>Mở chat Claude trong project Pum Content Studio</b><p>Đính kèm đúng các file đã gắn trong app (xem danh sách bên dưới).</p>
+        <button class="btn ghost" data-copylist="1" ${stats.clips ? "" : "disabled"}>Chép danh sách file</button></div></li>
+      <li><span class="sn" aria-hidden="true">3</span><div><b>Nhắn câu này trong chat</b><p><code>${esc(msg)}</code></p>
+        <button class="btn ghost" data-copymsg="1">Chép câu nhắn</button></div></li>
     </ol>
-    <div class="row"><button class="btn rose" data-sendai="1" ${stats.clips ? "" : "disabled"}>${e.sentAt ? "Gửi lại cho AI" : "Gửi cho AI"}</button><button class="btn ghost" data-copymsg="1">Chép câu nhắn</button><button class="btn ghost" data-copylist="1" ${stats.clips ? "" : "disabled"}>Chép danh sách file</button></div>
-    ${e.sentAt ? `<p class="small muted" style="margin-top:10px">Đã gửi lúc ${new Date(e.sentAt).toLocaleString("vi-VN")}.</p>` : ""}
     <details class="miss" style="margin-top:14px"><summary>Danh sách file theo chương</summary><pre class="mf">${esc(manifestText(sc))}</pre></details>
   </section>`;
   const copy = t => (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Đã chép"), () => toast("Chưa chép được, giữ lâu để chép tay"));
   sb.querySelector("[data-copymsg]").onclick = () => copy(msg);
   sb.querySelector("[data-copylist]").onclick = () => copy(manifestText(sc));
   sb.querySelector("[data-sendai]").onclick = async () => { await saveEd(n, {status:"gui", sentAt:Date.now(), script:`scripts/tap${n}.enc`}); toast("Đã gửi. Giờ qua chat Claude gửi file nha."); };
+  sb.querySelectorAll("[data-gostep]").forEach(b => b.onclick = () => { LS.set("dungStep" + n, Number(b.dataset.gostep)); render(); toTop(".stepper"); });
 }
 
 function boardHTML(bd){
