@@ -169,6 +169,29 @@ def cmd_match(ep, folder):
     for m in miss: print("  thiếu:", m)
     for p in extra: print("  chưa gắn:", Path(p).name)
 
+def cmd_drive(ep):
+    """Danh sách video Pum đã tải lên Google Drive mà máy này chưa có: tải từng file bằng
+    công cụ Google Drive (download_file_content, mã file ở cột drive) rồi `place` vào đúng chỗ."""
+    man = json.loads((wdir(ep) / "manifest.json").read_text()); src = wdir(ep) / "src"; src.mkdir(exist_ok=True)
+    todo, have, nod = [], 0, []
+    for c, b, x in all_clips(man):
+        if not x.get("drive"): nod.append(f'{c["title"]} · {b["title"] if b else "ngoài kịch bản"} · {x.get("name")}'); continue
+        dst = src / f'{x["id"]}_{x["name"]}'
+        if dst.exists() and (not x.get("size") or dst.stat().st_size == x["size"]): have += 1; continue
+        todo.append({"drive": x["drive"], "dest": str(dst), "size": x.get("size"), "canh": b["title"] if b else "ngoài kịch bản"})
+    (wdir(ep) / "drive_todo.json").write_text(json.dumps(todo, ensure_ascii=False, indent=1))
+    print(f"đã có {have}, cần tải {len(todo)}, chưa lên Drive {len(nod)}")
+    for t in todo: print(f'  tải: {t["drive"]} -> {t["dest"]} ({(t["size"] or 0)/1e6:.0f} MB)')
+    for m in nod: print("  chưa lên Drive (nhờ Pum tải tiếp ở bước 1 hoặc đính kèm):", m)
+
+def cmd_place(ep, got, drive_id):
+    todo = json.loads((wdir(ep) / "drive_todo.json").read_text())
+    t = next((t for t in todo if t["drive"] == drive_id), None)
+    if not t: die("mã Drive không có trong drive_todo.json")
+    import shutil; shutil.copyfile(got, t["dest"])
+    sz = Path(t["dest"]).stat().st_size
+    print("đã đặt", Path(t["dest"]).name, f"{sz/1e6:.1f} MB", "" if not t["size"] or sz == t["size"] else f"(KHÁC dung lượng gốc {t['size']})")
+
 def _audio_stats(path, dur):
     """độ lớn âm thanh mỗi 0,5 giây (dBFS)"""
     r = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-vn", "-ac", "1", "-ar", "8000", "-f", "s16le", "-"], capture_output=True)
@@ -274,6 +297,6 @@ def cmd_final(ep, ver, msg=""):
 if __name__ == "__main__":
     a = sys.argv[1:]
     if not a: print(__doc__); sys.exit()
-    {"fetch": lambda: cmd_fetch(a[1]), "match": lambda: cmd_match(a[1], a[2]), "scan": lambda: cmd_scan(a[1], *(a[2:3])),
+    {"fetch": lambda: cmd_fetch(a[1]), "drive": lambda: cmd_drive(a[1]), "place": lambda: cmd_place(a[1], a[2], a[3]), "match": lambda: cmd_match(a[1], a[2]), "scan": lambda: cmd_scan(a[1], *(a[2:3])),
      "sheet": lambda: cmd_sheet(a[1]), "push": lambda: cmd_push(a[1], a[2], a[3]), "status": lambda: cmd_status(a[1], a[2], " ".join(a[3:])),
      "board": lambda: cmd_board(a[1], a[2], " ".join(a[3:])), "draft": lambda: cmd_draft(a[1], a[2], " ".join(a[3:])), "final": lambda: cmd_final(a[1], a[2], " ".join(a[3:]))}[a[0]]()

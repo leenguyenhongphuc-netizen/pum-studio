@@ -696,7 +696,10 @@ const IC = {
   starOn:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
   check:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
   dot:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="12" cy="12" r="7"/></svg>',
-  x:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
+  up:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M6.5 9.5 12 4l5.5 5.5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>',
+  drive:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 3.5h7l6 10.5-3.5 6h-12L2.5 14z"/><path d="M8.5 3.5 15 14.5H2.5M15.5 3.5 9 14.5l-3 5.5M21.5 14H15l3 6"/></svg>',
+  cam:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6.5" width="13" height="11" rx="2.5"/><path d="M15.5 10.5 21.5 7v10l-6-3.5z"/></svg>',
+  x:'<svg width="20" height="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 };
 const KINDS = [["canh","Cảnh"],["noi","Nói tại chỗ"],["vo","Lồng tiếng"]];
 const ESTAT = {gui:"Đã gửi cho AI", de_xuat:"AI đã gửi hướng dựng", duyet:"Pum đã duyệt hướng dựng", dang_dung:"AI đang dựng", nhap:"Có bản nháp", sua:"AI đang sửa theo góp ý", chot:"AI đang xuất bản cuối", xong:"Đã có bản cuối"};
@@ -719,40 +722,12 @@ function probeFile(f){ return new Promise(res => {
   const base = () => ({dur: isFinite(el.duration) ? el.duration : 0, w: el.videoWidth || 0, h: el.videoHeight || 0, audio});
   const fin = o => { if (done) return; done = true; try{ URL.revokeObjectURL(url); }catch(e){} res(o); };
   el.onloadedmetadata = () => { if (audio || !el.videoWidth) return fin(Object.assign(base(), {thumb:""})); try{ el.currentTime = Math.min(1, (el.duration || 2) * 0.2); }catch(e){ fin(Object.assign(base(), {thumb:""})); } };
-  el.onseeked = () => { try{ const c = document.createElement("canvas"), w = 160, h = Math.round(w * el.videoHeight / el.videoWidth); c.width = w; c.height = h; c.getContext("2d").drawImage(el, 0, 0, w, h); fin(Object.assign(base(), {thumb:c.toDataURL("image/jpeg", .6)})); }catch(e){ fin(Object.assign(base(), {thumb:""})); } };
+  el.onseeked = () => { try{ const c = document.createElement("canvas"), w = 160, h = Math.round(w * el.videoHeight / el.videoWidth); c.width = w; c.height = h; c.getContext("2d").drawImage(el, 0, 0, w, h); const t = c.toDataURL("image/jpeg", .6), s2 = document.createElement("canvas"), sw = 96, sh = Math.round(sw * el.videoHeight / el.videoWidth); s2.width = sw; s2.height = sh; s2.getContext("2d").drawImage(c, 0, 0, sw, sh); fin(Object.assign(base(), {thumb:t, small:s2.toDataURL("image/jpeg", .55)})); }catch(e){ fin(Object.assign(base(), {thumb:""})); } };
   el.onerror = () => fin({dur:0, w:0, h:0, audio, thumb:""});
   setTimeout(() => fin(Object.assign(base(), {thumb:""})), 9000);
   el.src = url;
 });}
 
-async function addFiles(files, key, n, extraKeep){
-  const list = clipList(key).slice(); let i = 0;
-  for (const f of files){
-    i++; toast(`Đang đọc clip ${i}/${files.length}…`);
-    const p = await probeFile(f), id = uid();
-    if (p.thumb) LS.set("th:" + id, p.thumb);
-    list.push({id, name:f.name, size:f.size, dur:Math.round((p.dur||0)*100)/100, w:p.w, h:p.h, mod:f.lastModified || 0,
-      kind: p.audio ? "vo" : (p.w && p.h > p.w ? "noi" : "canh"), note:"", best:false, at:Date.now()});
-  }
-  await saveClips(key, n, list, extraKeep);
-  toast(`Đã gắn ${files.length} clip`);
-}
-
-function clipRow(c, key){
-  const th = LS.get("th:" + c.id, "");
-  return `<li class="clip" data-cid="${c.id}" data-key="${key}">
-    <div class="cth ${c.kind==="vo"?"is-vo":""}">${th?`<img src="${th}" alt="">`:`${c.kind==="vo"?IC.note:IC.play}`}</div>
-    <div class="cmain">
-      <p class="cname"><b>${esc(c.name)}</b><span>${fmtT(c.dur)}${c.size?` · ${fmtSize(c.size)}`:""}${c.h>c.w&&c.w?" · dọc":""}</span></p>
-      <div class="ckind" role="group" aria-label="Loại clip">${KINDS.map(([k,t])=>`<button type="button" data-kind="${k}" aria-pressed="${c.kind===k}">${t}</button>`).join("")}</div>
-      <input type="text" class="cnote" data-note="1" value="${esc(c.note||"")}" placeholder="Ghi chú take" aria-label="Ghi chú cho clip ${esc(c.name)}">
-    </div>
-    <div class="cact">
-      <button type="button" class="cbest" data-best="1" aria-pressed="${!!c.best}" aria-label="Take ưng nhất">${c.best?IC.starOn:IC.star}<small>Ưng</small></button>
-      <button type="button" class="cdel" data-delclip="1" aria-label="Bỏ clip ${esc(c.name)}">${IC.x}</button>
-    </div>
-  </li>`;
-}
 /* mỗi cảnh: kịch bản cần những clip gì, đã có chưa */
 const NEEDK = [["Hình","canh","Cảnh quay"],["Quay thêm","canh","Cảnh thêm"],["Nói","noi","Pum nói tại chỗ"],["Nói thêm","noi","Nói thêm (nếu hứng)"],["Lồng tiếng","vo","Lồng tiếng thu sau"]];
 function needsHTML(b, cl){
@@ -760,34 +735,19 @@ function needsHTML(b, cl){
   if (!rows.length) return "";
   return `<ul class="needs">${rows.map(r => { const ok = cl.some(c => c.kind === r.kind); return `<li class="${ok?"ok":""}"><span class="nk">${ok?IC.check:IC.dot}${esc(r.lab)}</span><p>${esc(r.v)}</p></li>`; }).join("")}</ul>`;
 }
+function needChips(b, cl){
+  const seen = new Set(), out = [];
+  NEEDK.forEach(([k, kind]) => { const it = b.items.find(x => x.k.split(" (")[0] === k); if (it && it.v && !seen.has(kind)){ seen.add(kind); out.push(kind); } });
+  if (!out.length) return "";
+  const L = {canh:"Cảnh quay", noi:"Pum nói", vo:"Lồng tiếng"};
+  return `<ul class="nchips" aria-label="Cảnh này cần">${out.map(k => { const ok = cl.some(c => c.kind === k); return `<li class="${ok?"ok":""}">${ok?IC.check:IC.dot}${L[k]}</li>`; }).join("")}</ul>`;
+}
 const REASONS = ["Gặp người thú vị", "Cảnh đẹp bất ngờ", "Phản ứng thật, buồn cười", "Món hoặc chỗ không có trong kịch bản", "Mẹo hay cho người xem", "Quay dự phòng để nối cảnh"];
-function clipBox(key, label, n){
-  const cl = clipList(key);
-  return `<ul class="clips">${cl.map(c => clipRow(c, key)).join("")}</ul>
-    <label class="btn small ghost addclip"><input type="file" multiple accept="video/*,audio/*" data-addkey="${key}" hidden>+ Thêm clip${cl.length?"":` cho ${esc(label)}`}</label>`;
-}
-
-function bindClips(root, n){
-  root.querySelectorAll("[data-addkey]").forEach(inp => inp.onchange = async () => {
-    const files = [...inp.files]; if (!files.length) return;
-    const k = inp.dataset.addkey, keep = k.endsWith("x") ? {reason: clipDoc(k).reason || ""} : null;
-    await addFiles(files, k, n, keep); inp.value = "";
-  });
-  const upd = async (li, fn) => { const k = li.dataset.key, cl = clipList(k).map(c => c.id === li.dataset.cid ? fn(Object.assign({}, c)) : c).filter(Boolean); const x = clipDoc(k); await saveClips(k, n, cl, k.endsWith("x") ? {reason:x.reason||""} : null); };
-  root.querySelectorAll(".clip").forEach(li => {
-    li.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => upd(li, c => (c.kind = b.dataset.kind, c)));
-    li.querySelector("[data-best]").onclick = () => upd(li, c => (c.best = !c.best, c));
-    li.querySelector("[data-delclip]").onclick = () => { if (confirm("Bỏ clip này khỏi cảnh? File trên điện thoại vẫn còn.")) upd(li, () => null); };
-    const nt = li.querySelector("[data-note]"); nt.dataset.keep = "0"; nt.onchange = () => upd(li, c => (c.note = nt.value.trim(), c));
-  });
-  root.querySelectorAll("[data-reason]").forEach(ta => { ta.dataset.keep = "0"; ta.onchange = async () => { const k = ta.dataset.reason; await saveClips(k, n, clipList(k), {reason: ta.value}); toast("Đã lưu lý do"); }; });
-}
-
 function dungStats(sc){
-  const parts = sc.sections.filter(s => s.kind !== "list"); let beats = 0, withClip = 0, clips = 0, dur = 0, size = 0, extra = 0;
-  parts.forEach(p => { p.beats.forEach(b => { beats++; const c = clipList(b.key); if (c.length) withClip++; c.forEach(x => { clips++; dur += x.dur||0; size += x.size||0; }); });
-    clipList(p.id + "x").forEach(x => { clips++; extra++; dur += x.dur||0; size += x.size||0; }); });
-  return {beats, withClip, clips, dur, size, extra};
+  const parts = sc.sections.filter(s => s.kind !== "list"); let beats = 0, withClip = 0, clips = 0, dur = 0, size = 0, extra = 0, onDrive = 0;
+  parts.forEach(p => { p.beats.forEach(b => { beats++; const c = clipList(b.key); if (c.length) withClip++; c.forEach(x => { clips++; dur += x.dur||0; size += x.size||0; if (x.drive) onDrive++; }); });
+    clipList(p.id + "x").forEach(x => { clips++; extra++; dur += x.dur||0; size += x.size||0; if (x.drive) onDrive++; }); });
+  return {beats, withClip, clips, dur, size, extra, onDrive};
 }
 
 function stepOf(e, st){
@@ -807,7 +767,7 @@ function renderPublish(body, sc, st){
     renderPost($("#postBox"), sc, st); return;
   }
   const auto = stepOf(e, st), sk = "dungStep" + n; let cur = Number(LS.get(sk, 0)) || auto;
-  const names = [["Gắn clip", `${stats.withClip}/${stats.beats} cảnh`], ["Gửi AI", e.sentAt ? "đã gửi" : "chưa gửi"], ["Hướng dựng", e.boardV ? (e.feedback && e.feedback.approved ? "đã duyệt" : "chờ Pum") : "chờ AI"], ["Bản nháp", e.draftV ? `v${e.draftV}` : "chờ AI"], ["Đăng", e.finalV ? "bản cuối" : ""]];
+  const names = [["Tải video", `${stats.withClip}/${stats.beats} cảnh`], ["Gửi AI", e.sentAt ? "đã gửi" : "chưa gửi"], ["Hướng dựng", e.boardV ? (e.feedback && e.feedback.approved ? "đã duyệt" : "chờ Pum") : "chờ AI"], ["Bản nháp", e.draftV ? `v${e.draftV}` : "chờ AI"], ["Đăng", e.finalV ? "bản cuối" : ""]];
   body.innerHTML = `
   ${e.status ? `<p class="estat" role="status"><b>${esc(ESTAT[e.status] || e.status)}</b>${e.agentMsg ? ` · ${esc(e.agentMsg)}` : ""}</p>` : ""}
   <nav class="stepper" aria-label="Các bước dựng">${names.map(([t, s], i) => `<button type="button" data-step="${i+1}" aria-pressed="${cur===i+1}" class="${i+1<auto?"done":""}"><b>${i+1}. ${t}</b><small>${esc(s)}</small></button>`).join("")}</nav>
@@ -818,46 +778,293 @@ function renderPublish(body, sc, st){
   ({1:stepClips, 2:stepSend, 3:stepBoard, 4:stepDraft, 5:stepPost})[cur](sb, sc, st, e, stats);
 }
 
+async function addFiles(files, key, n, extraKeep, ctx){
+  const list = clipList(key).slice(), jobs = []; let i = 0;
+  for (const f of files){
+    i++; toast(`Đang đọc video ${i}/${files.length}…`);
+    const p = await probeFile(f), id = uid();
+    if (p.thumb) LS.set("th:" + id, p.thumb);
+    list.push({id, name:f.name, size:f.size, dur:Math.round((p.dur||0)*100)/100, w:p.w, h:p.h, mod:f.lastModified || 0, th:p.small || "",
+      kind: p.audio ? "vo" : (p.w && p.h > p.w ? "noi" : "canh"), note:"", best:false, at:Date.now()});
+    if (gdOK() && gdCfg().cid) jobs.push({id, key, n, file:f, title:ctx.title, path:ctx.path});
+  }
+  jobs.forEach(gdEnqueue);
+  await saveClips(key, n, list, extraKeep);
+  if (jobs.length) gdRun(); else toast(`Đã gắn ${files.length} video`);
+}
+
+function clipState(c){
+  const p = GD.prog[c.id];
+  if (p && (p.st === "cho" || p.st === "dang")) return "up";
+  if (c.drive) return "drive";
+  if (p && p.st === "loi") return "loi";
+  return "local";
+}
+function clipRow(c, key){
+  const th = c.th || LS.get("th:" + c.id, ""), st = clipState(c), canDrive = gdOK() && gdCfg().cid;
+  const stat = st === "up" ? `<div class="cprog" data-prog="${c.id}"><i></i><span>Đang chờ</span></div>`
+    : st === "drive" ? `<span class="cst ok">${IC.check}Đã lên Drive</span>`
+    : !canDrive ? "" : st === "loi" && GD.files[c.id] ? `<span class="cst bad">Tải lỗi</span><button type="button" class="btn small ghost" data-retry="${c.id}">Thử lại</button>`
+    : `<span class="cst warn">Chưa lên Drive</span><label class="btn small ghost repick"><input type="file" accept="video/*,audio/*" data-repick="${c.id}" hidden>Chọn lại file này</label>`;
+  return `<li class="clip" data-cid="${c.id}" data-key="${key}">
+    <div class="cth ${c.kind==="vo"?"is-vo":""}">${th?`<img src="${th}" alt="">`:`${c.kind==="vo"?IC.note:IC.play}`}${c.dur?`<em>${fmtT(c.dur)}</em>`:""}</div>
+    <div class="cmain">
+      <p class="cname"><b>${esc(c.name)}</b><span>${c.size?fmtSize(c.size):""}${c.h>c.w&&c.w?" · quay dọc":c.w?" · quay ngang":""}</span></p>
+      <div class="cstat">${stat}</div>
+      <div class="ckind" role="group" aria-label="Video này là">${KINDS.map(([k,t])=>`<button type="button" data-kind="${k}" aria-pressed="${c.kind===k}">${t}</button>`).join("")}</div>
+      <input type="text" class="cnote" data-note="1" value="${esc(c.note||"")}" placeholder="Ghi chú cho AI, ví dụ: take này bị rung" aria-label="Ghi chú cho video ${esc(c.name)}">
+    </div>
+    <div class="cact">
+      <button type="button" class="cbest" data-best="1" aria-pressed="${!!c.best}" aria-label="Take ưng nhất">${c.best?IC.starOn:IC.star}<small>Ưng</small></button>
+      <button type="button" class="cdel" data-delclip="1" aria-label="Bỏ video ${esc(c.name)}">${IC.x}</button>
+    </div>
+  </li>`;
+}
+/* nút tải: video riêng, lồng tiếng riêng, để điện thoại không hỏi "ghi âm" khi chọn video */
+function clipBox(key, label, n, vo){
+  const cl = clipList(key);
+  return `<ul class="clips">${cl.map(c => clipRow(c, key)).join("")}</ul>
+    <div class="addrow">
+      <label class="btn rose addclip"><input type="file" multiple accept="video/*" data-addkey="${key}" hidden>${IC.up}${cl.length ? "Thêm video" : `Tải video ${esc(label)}`}</label>
+      ${vo ? `<label class="btn ghost addclip"><input type="file" multiple accept="audio/*" data-addkey="${key}" hidden>${IC.note}Thêm file lồng tiếng</label>` : ""}
+    </div>`;
+}
+
+function bindClips(root, n, ctxOf){
+  root.querySelectorAll("[data-addkey]").forEach(inp => inp.onchange = async () => {
+    const files = [...inp.files]; if (!files.length) return;
+    const k = inp.dataset.addkey, keep = k.endsWith("x") ? {reason: clipDoc(k).reason || ""} : null;
+    await addFiles(files, k, n, keep, ctxOf(k)); inp.value = "";
+  });
+  const upd = async (li, fn) => { const k = li.dataset.key, cl = clipList(k).map(c => c.id === li.dataset.cid ? fn(Object.assign({}, c)) : c).filter(Boolean); const x = clipDoc(k); await saveClips(k, n, cl, k.endsWith("x") ? {reason:x.reason||""} : null); };
+  root.querySelectorAll(".clip").forEach(li => {
+    li.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => upd(li, c => (c.kind = b.dataset.kind, c)));
+    li.querySelector("[data-best]").onclick = () => upd(li, c => (c.best = !c.best, c));
+    li.querySelector("[data-delclip]").onclick = () => { if (confirm("Bỏ video này khỏi cảnh? Video trên điện thoại và trên Drive vẫn còn.")) { GD.queue = GD.queue.filter(j => j.id !== li.dataset.cid); gdPaint(); upd(li, () => null); } };
+    const nt = li.querySelector("[data-note]"); nt.dataset.keep = "0"; nt.onchange = () => upd(li, c => (c.note = nt.value.trim(), c));
+    const rp = li.querySelector("[data-repick]"); if (rp) rp.onchange = () => { const f = rp.files[0], k = li.dataset.key, c = clipList(k).find(x => x.id === li.dataset.cid); if (!f || !c) return;
+      if (c.size && f.size !== c.size && !confirm(`File này khác dung lượng file đã gắn (${fmtSize(f.size)} so với ${fmtSize(c.size)}). Vẫn tải file này?`)) return;
+      gdEnqueue(Object.assign({id:c.id, key:k, n, file:f}, ctxOf(k))); render(); gdRun(); };
+    const rt = li.querySelector("[data-retry]"); if (rt) rt.onclick = () => { const c = clipList(li.dataset.key).find(x => x.id === rt.dataset.retry), f = GD.files[rt.dataset.retry]; if (!c || !f) return; gdEnqueue(Object.assign({id:c.id, key:li.dataset.key, n, file:f}, ctxOf(li.dataset.key))); render(); gdRun(); };
+  });
+  root.querySelectorAll("[data-reason]").forEach(ta => { ta.dataset.keep = "0"; ta.onchange = async () => { const k = ta.dataset.reason; await saveClips(k, n, clipList(k), {reason: ta.value}); toast("Đã lưu lý do"); }; });
+  gdPaint();
+}
+
+/* trạng thái một cảnh, một nhãn duy nhất */
+function sceneState(cl, shot){
+  const up = cl.filter(c => clipState(c) === "up").length, onD = cl.filter(c => c.drive).length, drv = gdOK() && gdCfg().cid;
+  if (up) return ["up", `Đang tải ${up} video`];
+  if (cl.length && (!drv || onD === cl.length)) return ["ok", `${cl.length} video${drv ? " trên Drive" : ""}`];
+  if (cl.length) return ["warn", `${cl.length - onD}/${cl.length} video chưa lên Drive`];
+  if (shot) return ["todo", "Đã quay, chưa tải video"];
+  return ["none", "Chưa quay"];
+}
+
+function gdCard(stats){
+  const cfg = gdCfg();
+  if (!gdOK()) return `<section class="gdc"><div class="gdc-ic">${IC.drive}</div><div><b>Tải video ở trang web của Pum Studio</b><p>Mở <a href="https://pum.cherie.io.vn/" target="_blank" rel="noopener">pum.cherie.io.vn</a> bằng trình duyệt trên điện thoại để tải video lên Google Drive. Ở đây chỉ xem được.</p></div></section>`;
+  if (!cfg.cid) return `<section class="gdc setup"><div class="gdc-ic">${IC.drive}</div><div>
+    <b>Nối Google Drive để tải video lên</b><p>Làm một lần trên máy tính, khoảng 5 phút. Xong thì Pum chỉ cần bấm "Tải video" ở từng cảnh.</p>
+    <details class="miss gdguide"><summary>Cách lấy mã kết nối</summary><ol>
+      <li>Vào <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">console.cloud.google.com</a>, tạo dự án tên <b>Pum Studio</b>.</li>
+      <li>Vào <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener">Google Drive API</a>, bấm <b>Enable</b>.</li>
+      <li>Vào <a href="https://console.cloud.google.com/auth/branding" target="_blank" rel="noopener">Google Auth Platform</a>, bấm <b>Get started</b>: tên app Pum Studio, chọn <b>External</b>, điền email. Ở mục <b>Audience</b>, thêm Gmail của Pum vào <b>Test users</b>.</li>
+      <li>Vào <a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener">Clients</a>, bấm <b>Create client</b>, chọn <b>Web application</b>. Ở <b>Authorized JavaScript origins</b> thêm <code>https://pum.cherie.io.vn</code>.</li>
+      <li>Chép <b>Client ID</b> (đuôi .apps.googleusercontent.com) dán vào ô dưới.</li>
+    </ol></details>
+    <label class="f">Mã kết nối (Client ID)<input type="text" id="gdCid" placeholder="123…apps.googleusercontent.com" autocomplete="off"></label>
+    <label class="f">Gmail để AI lấy video<input type="email" id="gdShare" value="${esc(cfg.share||"")}" placeholder="Gmail đang nối với Claude"></label>
+    <button class="btn" type="button" id="gdSave">Lưu</button></div></section>`;
+  if (!gdOn()) return `<section class="gdc go"><div class="gdc-ic">${IC.drive}</div><div><b>Video sẽ tải thẳng lên Google Drive</b><p>${GD.email ? `Bấm để nối lại với ${esc(GD.email)}.` : "Bấm nối một lần mỗi lần mở app, rồi chọn video ở từng cảnh."}${GD.queue.length ? ` Đang có ${GD.queue.length} video chờ.` : ""}</p>
+    <button class="btn rose" type="button" data-gdconnect="1">Kết nối Google Drive</button></div></section>`;
+  const q = GD.quota, free = q && q.limit ? Number(q.limit) - Number(q.usage) : 0, root = ((cfg.acc || {})[GD.email.toLowerCase()] || {})["/"];
+  return `<section class="gdc on"><div class="gdc-ic">${IC.drive}</div><div><b>Đã nối Google Drive</b><p>${esc(GD.email)}${free ? ` · còn trống ${fmtSize(free)}` : ""}${stats.onDrive ? ` · ${stats.onDrive} video đã lên` : ""}</p>
+    ${root ? `<a class="lnk" href="https://drive.google.com/drive/folders/${root}" target="_blank" rel="noopener">Mở thư mục video trên Drive</a>` : ""}</div></section>`;
+}
+
 function stepClips(sb, sc, st, e, stats){
   const n = sc.n, parts = sc.sections.filter(s => s.kind !== "list");
   const store = "shootSec" + st.n; let cur = LS.get(store, null);
   if (!parts.some(p => secKey(p) === cur)) cur = secKey(parts[0]);
   const sec = parts.find(p => secKey(p) === cur);
-  const lab = s => { const t = s.title.replace(/\s*\(.*\)$/,""); const m = t.match(/^(Chương \d+)\s*·\s*(.+)$/); const c = s.beats.filter(b => clipList(b.key).length).length; return `${esc(m ? m[1] : (s.kind==="day" ? "Ngày " + s.d : t))}<small>${c}/${s.beats.length} cảnh có clip</small>`; };
+  const secName = s => s.title.replace(/\s*\(.*\)$/,"");
+  const epName = n === "testlate" ? "Tập test (dậy muộn)" : n === "test" ? "Tập test" : "Tập " + n;
+  const lab = s => { const t = secName(s); const m = t.match(/^(Chương \d+)\s*·\s*(.+)$/); const c = s.beats.filter(b => clipList(b.key).length).length;
+    return `${esc(m ? m[1] : (s.kind==="day" ? "Ngày " + s.d : t))}<small>${c}/${s.beats.length} cảnh</small><i style="--p:${s.beats.length ? Math.round(c / s.beats.length * 100) : 0}%"></i>`; };
   const full = s => s.beats.length && s.beats.every(b => clipList(b.key).length);
-  const ex = clipDoc(sec.id + "x");
+  const ctxOf = k => { const b = sec.beats.find(x => x.key === k); return {title: b ? b.title : "Ngoài kịch bản", path:[epName, secName(sec)]}; };
+  const ex = clipDoc(sec.id + "x"), pct = stats.beats ? Math.round(stats.withClip / stats.beats * 100) : 0;
   sb.innerHTML = `
-  <p class="small muted dhelp">Mỗi cảnh ghi sẵn kịch bản cần những clip gì; gắn đủ loại nào thì loại đó hiện dấu tích. Gắn bao nhiêu clip cũng được: các lần quay lại, cảnh không lời, cảnh Pum nói, file lồng tiếng. Take nào ưng thì chạm sao, take nào hỏng thì ghi chú để AI bỏ qua. Clip vẫn nằm trên điện thoại, app chỉ ghi tên file.</p>
-  <nav class="daypick" aria-label="Chọn chương">${parts.map(p => `<button data-dsec="${secKey(p)}" aria-pressed="${secKey(p)===cur}" class="${full(p)?"done":""}">${lab(p)}</button>`).join("")}</nav>
+  ${gdCard(stats)}
+  <div class="dsum"><p><b class="num">${stats.withClip}/${stats.beats}</b> cảnh đã có video${stats.clips ? ` · ${stats.clips} video, ${fmtT(stats.dur)}` : ""}</p><i style="--p:${pct}%"></i>
+    <p class="small muted">Mỗi cảnh: chọn video đã quay. Có lời Pum nói thì đánh dấu "Nói tại chỗ", thu lồng tiếng thì thêm file lồng tiếng. AI xem hết rồi đề xuất cách dựng ở bước 3.</p></div>
+  <nav class="daypick dprog" aria-label="Chọn chương">${parts.map(p => `<button data-dsec="${secKey(p)}" aria-pressed="${secKey(p)===cur}" class="${full(p)?"done":""}">${lab(p)}</button>`).join("")}</nav>
   <section class="vsec" style="border-top:0;margin-top:8px;padding-top:6px">
-    <h2 class="disp">${esc(sec.title.replace(/\s*\(.*\)$/,""))}</h2>
-    ${sec.beats.map(b => { const x = S.beats[b.key] || {}, cl = clipList(b.key); return `<article class="dbeat ${cl.length?"has":""}">
-      <header><h3>${esc(b.title)}</h3><span class="tag ${cl.length?"":"soft"}">${cl.length ? cl.length + " clip" : "chưa có clip"}</span>${x.shot?`<span class="tag ok">đã quay</span>`:""}</header>
-      ${needsHTML(b, cl)}
+    <h2 class="disp">${esc(secName(sec))}</h2>
+    ${sec.beats.map(b => { const x = S.beats[b.key] || {}, cl = clipList(b.key), [sk, stx] = sceneState(cl, x.shot);
+      const thumbs = cl.map(c => c.th || LS.get("th:" + c.id, "")).filter(Boolean).slice(0, 3);
+      const ref = (b.items.find(i => i.k === "Ảnh mẫu") || {}).v, pic = ref ? refPics(ref)[0] : null;
+      const vis = thumbs.length ? `<div class="sv">${thumbs.map(t => `<img src="${t}" alt="">`).join("")}</div>`
+        : pic ? `<div class="sv ref"><img src="${img(pic.k)}" alt="${esc(pic.cap)}" loading="lazy"><em>Ảnh mẫu</em></div>` : `<div class="sv none">${IC.cam}</div>`;
+      const needVo = b.items.some(i => i.k.split(" (")[0] === "Lồng tiếng" && i.v);
+      return `<article class="dbeat st-${sk}">
+      <div class="shead">${vis}<div class="stt"><h3>${esc(b.title)}</h3><span class="spill">${esc(stx)}</span>${needChips(b, cl)}</div></div>
       ${x.note?`<p class="small dnote"><b>Ghi chú lúc quay:</b> ${esc(x.note)}</p>`:""}
-      ${clipBox(b.key, "cảnh này", n)}
+      ${needsHTML(b, cl) ? `<details class="sscript"><summary>Kịch bản cảnh này</summary>${needsHTML(b, cl)}</details>` : ""}
+      ${clipBox(b.key, "cảnh này", n, needVo)}
     </article>`; }).join("")}
     <article class="dbeat extra">
-      <header><h3>Quay ngoài kịch bản</h3><span class="tag soft">${clipList(sec.id+"x").length} clip</span></header>
-      <p class="small muted">Có cảnh hay mà kịch bản chưa có? Gắn vào đây, chạm gợi ý hoặc tự ghi vì sao quay và muốn AI đặt cảnh đó ở đâu.</p>
+      <div class="stt"><h3>Quay ngoài kịch bản</h3><span class="spill">${clipList(sec.id+"x").length} video</span></div>
+      <p class="small muted">Gặp cảnh hay mà kịch bản chưa có thì tải vào đây, kèm lý do để AI biết đặt ở đâu.</p>
       <div class="rchips" role="group" aria-label="Gợi ý lý do">${REASONS.map(r => `<button type="button" data-rchip="rs-${sec.id}">${esc(r)}</button>`).join("")}</div>
-      <label class="f">Vì sao quay, ý tưởng của Pum<textarea id="rs-${sec.id}" data-reason="${sec.id}x" placeholder="Ví dụ: gặp cô bán hàng vui tính, muốn chèn vào trước lúc ăn bánh canh">${esc(ex.reason||"")}</textarea></label>
+      <label class="f">Vì sao quay, muốn đặt ở đâu<textarea id="rs-${sec.id}" data-reason="${sec.id}x" placeholder="Ví dụ: gặp cô bán hàng vui tính, chèn trước lúc ăn bánh canh">${esc(ex.reason||"")}</textarea></label>
       ${dictBtn("rs-" + sec.id)}
-      ${clipBox(sec.id + "x", "phần này", n)}
+      ${clipBox(sec.id + "x", "ngoài kịch bản", n, true)}
     </article>
   </section>
   <div class="row" style="margin-top:20px"><button class="btn" data-step="2">Xong, qua bước gửi AI</button></div>`;
   sb.querySelectorAll("[data-dsec]").forEach(b => b.onclick = () => { LS.set(store, b.dataset.dsec); stay("#stepBody .daypick", () => stepClips(sb, sc, st, e, stats)); });
   sb.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { LS.set("dungStep" + n, 2); render(); toTop(".stepper"); });
-  bindClips(sb, n); bindDict(sb);
+  sb.querySelectorAll("[data-gdconnect]").forEach(b => b.onclick = gdConnect);
+  const sv = sb.querySelector("#gdSave"); if (sv) sv.onclick = async () => {
+    const cid = sb.querySelector("#gdCid").value.trim(), share = sb.querySelector("#gdShare").value.trim();
+    if (!/\.apps\.googleusercontent\.com$/.test(cid)) return toast("Mã kết nối phải có đuôi .apps.googleusercontent.com");
+    await setSetting({gdrive:Object.assign({}, gdCfg(), {cid, share})}); toast("Đã lưu. Bấm Kết nối Google Drive để bắt đầu.");
+  };
+  bindClips(sb, n, ctxOf); bindDict(sb);
   sb.querySelectorAll("[data-rchip]").forEach(b => b.onclick = async () => { const ta = document.getElementById(b.dataset.rchip); if (!ta) return; ta.value = (ta.value.trim() ? ta.value.trim() + ". " : "") + b.textContent + ": "; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); });
   keepX(sb, ".daypick", "dung" + n);
+}
+
+/* ---------- Google Drive: kho video gốc ----------
+   Video tải thẳng từ điện thoại lên Drive (tải từng phần, mất mạng thì tải tiếp).
+   Supabase chỉ giữ tên, thời lượng, ảnh nhỏ và mã file Drive; AI lấy video qua Drive. */
+const GD = {tok:"", exp:0, email:LS.get("gdEmail",""), quota:null, queue:[], files:{}, prog:{}, busy:false, need:"", lock:null, err:""};
+const gdCfg = () => S.settings.gdrive || {};
+const gdOK = () => /(^|\.)cherie\.io\.vn$|^localhost$|^127\./.test(location.hostname);
+const gdOn = () => !!(gdCfg().cid && GD.tok && Date.now() < GD.exp - 60000);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function gdLoad(){ return new Promise((res, rej) => {
+  if (window.google && google.accounts && google.accounts.oauth2) return res();
+  const s = document.createElement("script"); s.src = "https://accounts.google.com/gsi/client"; s.async = true;
+  s.onload = () => res(); s.onerror = () => rej(new Error("Không mở được trang đăng nhập Google")); document.head.appendChild(s);
+});}
+/* chỉ gọi từ một lần bấm (trình duyệt chặn cửa sổ đăng nhập nếu không có lần bấm) */
+async function gdConnect(){
+  const cid = gdCfg().cid; if (!cid) return toast("Chưa có mã kết nối Google");
+  try{ await gdLoad(); }catch(e){ return toast(e.message); }
+  await new Promise(res => {
+    const tc = google.accounts.oauth2.initTokenClient({client_id:cid, scope:"https://www.googleapis.com/auth/drive.file", login_hint:GD.email || undefined,
+      callback: r => { if (r && r.access_token){ GD.tok = r.access_token; GD.exp = Date.now() + (Number(r.expires_in)||3600)*1000; GD.need = ""; } else toast("Chưa kết nối được Google Drive"); res(); },
+      error_callback: e => { toast(e && e.type === "popup_closed" ? "Đã đóng cửa sổ Google" : "Trình duyệt chặn cửa sổ Google, bấm lại nha"); res(); }});
+    tc.requestAccessToken({prompt: GD.email ? "" : "consent"});
+  });
+  if (!GD.tok) return;
+  try{ const a = await gdApi("https://www.googleapis.com/drive/v3/about?fields=user(emailAddress),storageQuota"); GD.email = a.user.emailAddress; GD.quota = a.storageQuota; LS.set("gdEmail", GD.email); }catch(e){}
+  render(); gdRun();
+}
+async function gdApi(url, opt = {}){
+  if (!gdOn()) throw Object.assign(new Error("auth"), {auth:true});
+  const r = await fetch(url, Object.assign({}, opt, {headers:Object.assign({Authorization:"Bearer " + GD.tok}, opt.headers || {})}));
+  if (r.status === 401){ GD.tok = ""; throw Object.assign(new Error("auth"), {auth:true}); }
+  if (!r.ok) throw Object.assign(new Error("Drive " + r.status), {status:r.status});
+  return opt.raw ? r : r.json();
+}
+async function gdMk(name, parent){
+  const f = await gdApi("https://www.googleapis.com/drive/v3/files?fields=id", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({name, mimeType:"application/vnd.google-apps.folder", parents:[parent]})});
+  return f.id;
+}
+/* thư mục: Pum Studio · Video gốc / <tập> / <chương>; thư mục gốc chia sẻ cho tài khoản AI dùng để lấy video */
+async function gdFolder(path){
+  const cfg = gdCfg(), acc = (GD.email || "?").toLowerCase(), map = Object.assign({}, (cfg.acc || {})[acc] || {}); let changed = false;
+  if (!map["/"]){
+    map["/"] = await gdMk("Pum Studio · Video gốc", "root"); changed = true;
+    if (cfg.share && cfg.share.toLowerCase() !== acc){
+      try{ await gdApi(`https://www.googleapis.com/drive/v3/files/${map["/"]}/permissions?sendNotificationEmail=false`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({type:"user", role:"writer", emailAddress:cfg.share})}); }catch(e){ toast("Chưa chia sẻ được thư mục cho AI"); }
+    }
+  }
+  let parent = map["/"], p = "/";
+  for (const seg of path){ p += seg + "/"; if (!map[p]){ map[p] = await gdMk(seg, parent); changed = true; } parent = map[p]; }
+  if (changed){ S.settings = Object.assign({}, S.settings, {gdrive:Object.assign({}, cfg, {acc:Object.assign({}, cfg.acc || {}, {[acc]:map})})}); if (S.db){ try{ await S.db.doc("settings/main").set(S.settings); }catch(e){} } }
+  return {id:parent, root:map["/"]};
+}
+function gdForget(){ const cfg = gdCfg(), acc = (GD.email || "?").toLowerCase(), a = Object.assign({}, cfg.acc || {}); delete a[acc]; S.settings = Object.assign({}, S.settings, {gdrive:Object.assign({}, cfg, {acc:a})}); }
+function xhrPut(url, blob, range, onp){ return new Promise((res, rej) => {
+  const x = new XMLHttpRequest(); x.open("PUT", url); x.setRequestHeader("Content-Range", range);
+  x.upload.onprogress = e => onp && onp(e.loaded); x.onload = () => res(x); x.onerror = () => rej(new Error("mạng")); x.ontimeout = () => rej(new Error("mạng")); x.timeout = 120000;
+  x.send(blob);
+});}
+const CHUNK = 8 * 1024 * 1024;
+async function gdUpload(job){
+  const f = job.file, P = GD.prog[job.id] = Object.assign(GD.prog[job.id] || {}, {st:"dang", sent:0, size:f.size});
+  let url = LS.get("gdS:" + job.id, ""), off = 0;
+  if (url){ // phiên cũ còn: hỏi Drive đã nhận tới đâu
+    try{ const x = await xhrPut(url, null, `bytes */${f.size}`); if (x.status === 200 || x.status === 201) return JSON.parse(x.responseText); if (x.status === 308){ const m = (x.getResponseHeader("Range") || "").match(/-(\d+)$/); off = m ? Number(m[1]) + 1 : 0; } else url = ""; }catch(e){ url = ""; }
+  }
+  if (!url){
+    let fo; try{ fo = await gdFolder(job.path); }catch(e){ if (e.status === 404){ gdForget(); fo = await gdFolder(job.path); } else throw e; }
+    const meta = {name:`${job.title} · ${f.name}`, parents:[fo.id], description:`Pum Studio · ${job.path.join(" › ")} › ${job.title}`, appProperties:{pumClip:job.id, pumBeat:job.key}};
+    const r = await gdApi("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,size", {method:"POST", raw:true, headers:{"Content-Type":"application/json; charset=UTF-8", "X-Upload-Content-Type":f.type || "video/mp4", "X-Upload-Content-Length":String(f.size)}, body:JSON.stringify(meta)});
+    url = r.headers.get("Location"); if (!url) throw new Error("Drive không mở phiên tải");
+    LS.set("gdS:" + job.id, url); off = 0;
+  }
+  let tries = 0;
+  while (true){
+    const end = Math.min(off + CHUNK, f.size);
+    let x; try{ x = await xhrPut(url, f.slice(off, end), `bytes ${off}-${end - 1}/${f.size}`, n => { P.sent = off + n; gdPaint(); }); }
+    catch(e){ if (++tries > 6) throw e; await sleep(2000 * tries); try{ const q = await xhrPut(url, null, `bytes */${f.size}`); const m = (q.getResponseHeader("Range") || "").match(/-(\d+)$/); off = m ? Number(m[1]) + 1 : 0; }catch(_){ } continue; }
+    if (x.status === 200 || x.status === 201) return JSON.parse(x.responseText);
+    if (x.status === 308){ tries = 0; const m = (x.getResponseHeader("Range") || "").match(/-(\d+)$/); off = m ? Number(m[1]) + 1 : end; P.sent = off; gdPaint(); continue; }
+    if (x.status === 404 || x.status === 410){ LS.set("gdS:" + job.id, ""); throw new Error("Phiên tải hết hạn, tải lại từ đầu"); }
+    if (++tries > 6) throw new Error("Drive báo lỗi " + x.status); await sleep(2000 * tries);
+  }
+}
+function gdEnqueue(job){ if (!GD.queue.some(j => j.id === job.id)){ GD.files[job.id] = job.file; GD.queue.push(job); GD.prog[job.id] = {st:"cho", sent:0, size:job.file.size}; } }
+async function gdRun(){
+  if (GD.busy || !GD.queue.length) return gdPaint();
+  if (!gdOn()){ GD.need = gdCfg().cid ? "auth" : "setup"; return gdPaint(); }
+  GD.busy = true; GD.err = "";
+  try{ if (navigator.wakeLock) GD.lock = await navigator.wakeLock.request("screen"); }catch(e){}
+  while (GD.queue.length){
+    const job = GD.queue[0]; gdPaint();
+    try{
+      const r = await gdUpload(job);
+      GD.queue.shift(); delete GD.files[job.id]; LS.set("gdS:" + job.id, ""); GD.prog[job.id] = {st:"xong"};
+      const cl = clipList(job.key).map(c => c.id === job.id ? Object.assign({}, c, {drive:r.id, upAt:Date.now()}) : c), x = clipDoc(job.key);
+      await saveClips(job.key, job.n, cl, job.key.endsWith("x") ? {reason:x.reason || ""} : null);
+    }catch(e){
+      if (e.auth){ GD.need = "auth"; break; }
+      job.fail = (job.fail || 0) + 1; GD.err = e.message;
+      if (job.fail >= 3){ GD.queue.shift(); GD.prog[job.id] = {st:"loi", msg:e.message}; } else await sleep(4000 * job.fail);
+    }
+  }
+  GD.busy = false; try{ GD.lock && GD.lock.release(); }catch(e){} GD.lock = null; gdPaint();
+  if (!GD.queue.length) toast("Đã tải xong video lên Drive");
+}
+window.addEventListener("beforeunload", e => { if (GD.queue.length){ e.preventDefault(); e.returnValue = ""; } });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && GD.queue.length && !GD.busy) gdRun(); });
+/* thanh tải dưới đáy màn hình: nằm ngoài #view để không mất khi vẽ lại trang */
+function gdPaint(){
+  let bar = document.getElementById("gdbar");
+  const q = GD.queue, tot = q.reduce((s, j) => s + j.file.size, 0), sent = q.reduce((s, j) => s + ((GD.prog[j.id] || {}).sent || 0), 0);
+  document.body.classList.toggle("gdup", !!q.length);
+  if (!q.length){ if (bar) bar.remove(); } else {
+    if (!bar){ bar = document.createElement("div"); bar.id = "gdbar"; bar.className = "gdbar"; bar.setAttribute("role", "status"); document.body.appendChild(bar); }
+    const pct = tot ? Math.floor(sent / tot * 100) : 0;
+    const head = GD.need === "auth" ? `${q.length} video chờ tải lên Drive` : GD.need === "setup" ? `${q.length} video chờ, cần nối Google Drive` : `Đang tải ${q.length} video lên Drive · ${pct}%`;
+    const sub = GD.need === "auth" ? "Google cần xác nhận lại, bấm để tải tiếp" : GD.need === "setup" ? "Kéo lên đầu bước 1 để nối Drive" : `${fmtSize(sent) || "0 MB"} / ${fmtSize(tot)} · giữ màn hình mở, đừng đóng trang`;
+    bar.innerHTML = `<div class="gdb-t"><b>${head}</b><span>${sub}</span><i style="--p:${GD.need ? 0 : pct}%"></i></div>${GD.need === "auth" ? `<button class="btn rose small" type="button" data-gdgo="1">Tải tiếp</button>` : ""}`;
+    const go = bar.querySelector("[data-gdgo]"); if (go) go.onclick = gdConnect;
+  }
+  document.querySelectorAll("[data-prog]").forEach(el => { const p = GD.prog[el.dataset.prog]; if (!p) return; const pct = p.size ? Math.floor((p.sent || 0) / p.size * 100) : 0;
+    el.querySelector("i") && el.querySelector("i").style.setProperty("--p", pct + "%"); const t = el.querySelector("span"); if (t) t.textContent = p.st === "cho" ? (GD.need ? "Chờ nối Drive" : "Chờ tới lượt") : p.st === "dang" ? `Đang tải ${pct}%` : p.st === "loi" ? "Tải lỗi" : "Đã lên Drive"; });
 }
 
 function manifestText(sc){
   const lines = [`${sc.title}`];
   sc.sections.filter(s => s.kind !== "list").forEach(p => {
-    const rows = []; p.beats.forEach(b => clipList(b.key).forEach(c => rows.push(`  ${b.title}: ${c.name} (${fmtT(c.dur)}, ${KINDS.find(k=>k[0]===c.kind)[1]}${c.best?", ưng":""})`)));
+    const rows = []; p.beats.forEach(b => clipList(b.key).forEach(c => rows.push(`  ${b.title}: ${c.name} (${fmtT(c.dur)}, ${KINDS.find(k=>k[0]===c.kind)[1]}${c.best?", ưng":""}${c.drive?"":", chưa lên Drive"})`)));
     clipList(p.id + "x").forEach(c => rows.push(`  Ngoài kịch bản: ${c.name} (${fmtT(c.dur)})`));
     if (rows.length) lines.push(p.title.replace(/\s*\(.*\)$/,""), ...rows);
   });
@@ -871,24 +1078,23 @@ function stepSend(sb, sc, st, e, stats){
   sb.innerHTML = `
   <section class="pub">
     <h3 class="disp">Gửi cho AI xem</h3>
-    <div class="kpis"><div><b class="num">${stats.clips}</b><span>clip</span></div><div><b class="num">${fmtT(stats.dur)}</b><span>tổng thời lượng</span></div><div><b class="num">${stats.withClip}/${stats.beats}</b><span>cảnh có clip</span></div><div><b class="num">${fmtSize(stats.size) || "0 MB"}</b><span>dung lượng</span></div></div>
-    ${!stats.clips ? `<div class="empty"><p><b>Chưa gắn clip nào.</b> Gắn clip vào từng cảnh ở bước 1 rồi quay lại đây gửi cho AI.</p><button class="btn" data-gostep="1">Về bước 1 · Gắn clip</button></div>`
-      : missing.length ? `<details class="miss"><summary>${missing.length} cảnh chưa có clip</summary><ul>${missing.map(m => `<li>${esc(m)}</li>`).join("")}</ul><p class="small muted">Vẫn gửi được. AI dựng với những gì có và báo chỗ nào thiếu.</p></details>` : `<p class="ok-line">Cảnh nào cũng đã có clip.</p>`}
+    <div class="kpis"><div><b class="num">${stats.clips}</b><span>video</span></div><div><b class="num">${fmtT(stats.dur)}</b><span>tổng thời lượng</span></div><div><b class="num">${stats.withClip}/${stats.beats}</b><span>cảnh có video</span></div><div><b class="num">${fmtSize(stats.size) || "0 MB"}</b><span>dung lượng</span></div></div>
+    ${!stats.clips ? `<div class="empty"><p><b>Chưa có video nào.</b> Tải video vào từng cảnh ở bước 1 rồi quay lại đây gửi cho AI.</p><button class="btn" data-gostep="1">Về bước 1 · Tải video</button></div>`
+      : missing.length ? `<details class="miss"><summary>${missing.length} cảnh chưa có video</summary><ul>${missing.map(m => `<li>${esc(m)}</li>`).join("")}</ul><p class="small muted">Vẫn gửi được. AI dựng với những gì có và báo chỗ nào thiếu.</p></details>` : `<p class="ok-line">Cảnh nào cũng đã có video.</p>`}
+    ${stats.clips && stats.onDrive < stats.clips ? `<div class="empty warnbox"><p><b>${stats.clips - stats.onDrive} video chưa lên Drive.</b> AI chỉ lấy được video đã lên Drive. Về bước 1 tải tiếp, hoặc đính kèm các file đó khi nhắn trong chat.</p><button class="btn ghost" data-gostep="1">Về bước 1</button></div>` : ""}
     <ol class="sendsteps">
       <li><span class="sn" aria-hidden="true">1</span><div><b>Bấm gửi cho AI</b><p>Để AI biết clip nào thuộc cảnh nào.</p>
         <button class="btn rose" data-sendai="1" ${stats.clips ? "" : "disabled"}>${e.sentAt ? "Gửi lại cho AI" : "Gửi cho AI"}</button>
-        ${!stats.clips ? `<p class="small muted why">Cần gắn ít nhất 1 clip trước.</p>` : e.sentAt ? `<p class="small muted why">Đã gửi lúc ${new Date(e.sentAt).toLocaleString("vi-VN")}.</p>` : ""}</div></li>
-      <li><span class="sn" aria-hidden="true">2</span><div><b>Mở chat Claude trong project Pum Content Studio</b><p>Đính kèm đúng các file đã gắn trong app (xem danh sách bên dưới).</p>
-        <button class="btn ghost" data-copylist="1" ${stats.clips ? "" : "disabled"}>Chép danh sách file</button></div></li>
-      <li><span class="sn" aria-hidden="true">3</span><div><b>Nhắn câu này trong chat</b><p><code>${esc(msg)}</code></p>
+        ${!stats.clips ? `<p class="small muted why">Cần tải ít nhất 1 video trước.</p>` : e.sentAt ? `<p class="small muted why">Đã gửi lúc ${new Date(e.sentAt).toLocaleString("vi-VN")}.</p>` : ""}</div></li>
+      <li><span class="sn" aria-hidden="true">2</span><div><b>Nhắn câu này trong chat Claude</b><p>Mở project <b>Pum Content Studio</b> trong Claude, dán câu dưới. AI tự lấy video trên Drive, không cần đính kèm.</p><p><code>${esc(msg)}</code></p>
         <button class="btn ghost" data-copymsg="1">Chép câu nhắn</button></div></li>
     </ol>
-    <details class="miss" style="margin-top:14px"><summary>Danh sách file theo chương</summary><pre class="mf">${esc(manifestText(sc))}</pre></details>
+    <details class="miss" style="margin-top:14px"><summary>Danh sách video theo chương</summary><button class="btn ghost" data-copylist="1" style="margin-top:6px">Chép danh sách</button><pre class="mf">${esc(manifestText(sc))}</pre></details>
   </section>`;
   const copy = t => (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Đã chép"), () => toast("Chưa chép được, giữ lâu để chép tay"));
   sb.querySelector("[data-copymsg]").onclick = () => copy(msg);
   sb.querySelector("[data-copylist]").onclick = () => copy(manifestText(sc));
-  sb.querySelector("[data-sendai]").onclick = async () => { await saveEd(n, {status:"gui", sentAt:Date.now(), script:`scripts/tap${n}.enc`}); toast("Đã gửi. Giờ qua chat Claude gửi file nha."); };
+  sb.querySelector("[data-sendai]").onclick = async () => { await saveEd(n, {status:"gui", sentAt:Date.now(), script:`scripts/tap${n}.enc`}); toast("Đã gửi. Giờ nhắn trong chat Claude nha."); };
   sb.querySelectorAll("[data-gostep]").forEach(b => b.onclick = () => { LS.set("dungStep" + n, Number(b.dataset.gostep)); render(); toTop(".stepper"); });
 }
 

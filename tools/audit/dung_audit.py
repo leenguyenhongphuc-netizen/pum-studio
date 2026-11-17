@@ -34,7 +34,8 @@ async def run(p, engine, dev, shots):
             await pg.click(f".stepper [data-step='{s}']"); await pg.wait_for_timeout(1500 if s>2 else 600)
             if s==1:
                 await pg.click("[data-dsec='ttests1']"); await pg.wait_for_timeout(400)
-                await pg.set_input_files("input[data-addkey='ttests1b1']", ["/home/claude/fake/canh_tuong.mp4","/home/claude/fake/long_tieng.m4a"]); await pg.wait_for_timeout(3000)
+                await pg.set_input_files("input[data-addkey='ttests1b1'][accept='video/*']", ["/home/claude/fake/canh_tuong.mp4"]); await pg.wait_for_timeout(2500)
+                if await pg.query_selector("input[data-addkey='ttests1b1'][accept='audio/*']"): await pg.set_input_files("input[data-addkey='ttests1b1'][accept='audio/*']", ["/home/claude/fake/long_tieng.m4a"]); await pg.wait_for_timeout(2500)
             if s==4:
                 await pg.click("#openDraft"); await pg.wait_for_timeout(2500)
                 await pg.click(".tb.vs >> nth=1"); await pg.wait_for_timeout(500)

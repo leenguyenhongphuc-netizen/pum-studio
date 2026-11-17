@@ -8,8 +8,8 @@ description: Dựng tập vlog YouTube/TikTok của Pum từ footage Pum gắn t
 Dùng khi nhắn: "Dựng tập … từ Pum Studio", "Dựng tiếp tập …", "Sửa bản nháp tập …", "Xuất bản cuối tập …", hoặc khi Pum gửi footage để dựng. Luôn mở skill **pum-video-dna** trước: luật trung thực, chữ ký hình ảnh và bảng chấm của kênh cao hơn mọi thứ ở đây.
 
 ## Luồng 5 bước (app pum.cherie.io.vn › Quay › Dựng và đăng)
-1. **Gắn clip**: Pum gắn clip vào đúng cảnh của kịch bản (Cảnh / Nói tại chỗ / Lồng tiếng, ghi chú take, sao "Ưng"), cảnh ngoài kịch bản kèm lý do. App chỉ lưu tên, dung lượng, thời lượng; file nằm trên điện thoại.
-2. **Gửi AI**: Pum bấm Gửi, rồi đính kèm file vào chat Claude và nhắn "Dựng tập X". → AI quét, viết hướng dựng.
+1. **Tải video**: Pum tải video vào đúng cảnh của kịch bản (Cảnh / Nói tại chỗ / Lồng tiếng, ghi chú take, sao "Ưng"), cảnh ngoài kịch bản kèm lý do. Video tải thẳng lên Google Drive của Pum (thư mục "Pum Studio · Video gốc / Tập / Chương", chia sẻ cho Gmail đang nối với Claude); app lưu tên, dung lượng, thời lượng, ảnh nhỏ và mã file Drive (`drive`).
+2. **Gửi AI**: Pum bấm Gửi rồi nhắn "Dựng tập X" trong chat Claude. → AI lấy video trên Drive, quét, viết hướng dựng. Video chưa lên Drive thì Pum đính kèm trong chat.
 3. **Hướng dựng**: AI đưa hướng dựng lên app. Pum góp ý, bấm Duyệt, nhắn "Dựng tiếp tập X". → AI dựng bản nháp.
 4. **Bản nháp**: Pum xem bản nhẹ trong app, chạm từng đoạn để góp ý (bỏ, ngắn lại, đổi take, sửa chữ, đổi nhạc, sửa phụ đề). "Sửa bản nháp tập X" → AI sửa, tăng số bản. "Ưng rồi" → "Xuất bản cuối tập X".
 5. **Đăng**: AI gửi file 1080p trong chat, ghi công nhạc hiện ở app để dán vào mô tả.
@@ -26,6 +26,7 @@ Dùng khi nhắn: "Dựng tập … từ Pum Studio", "Dựng tiếp tập …",
 | Việc | Lệnh |
 |---|---|
 | Lấy kịch bản, clip đã gắn, góp ý | `pumdung.py fetch <ep>` |
+| Lấy video trên Drive | `pumdung.py drive <ep>` in danh sách mã Drive cần tải; với mỗi mã gọi công cụ Google Drive `download_file_content` (file tải về một đường dẫn tạm), rồi `pumdung.py place <ep> <đường dẫn tạm> <mã Drive>`. Xong chạy `match <ep> <WORK>/<ep>/src` |
 | Khớp file Pum gửi với clip đã gắn | `pumdung.py match <ep> /mnt/user-data/uploads` (khớp theo dung lượng, thời lượng ±0,35 s, tên; báo clip thiếu và file chưa gắn) |
 | Quét clip | `pumdung.py scan <ep>` (lời nói có mốc từng chữ, độ nét, độ sáng, độ lớn âm) rồi `pumdung.py sheet <ep>` và **tự xem ảnh** từng clip |
 | Đưa hướng dựng lên app | `pumdung.py board <ep> board.json "lời nhắn ngắn"` |
@@ -92,5 +93,6 @@ Concat chạy không cửa sổ qua MCP (`concat --mcp headless`, gói gọn tro
 ## Lưu ý kỹ thuật
 - Bản nhẹ ≤ 95 MB mới đẩy lên web được (GitHub). Tập dài quá thì hạ `crf` proxy hoặc 640 px.
 - File 1080p gửi bằng SendUserFile; nếu quá nặng thì xuất `crf 23` và báo dung lượng.
+- Video trên Drive là bản gốc từ điện thoại (không nén). Nếu `download_file_content` báo file quá lớn, báo anh Phúc kèm tên file và dung lượng, nhờ Pum đính kèm riêng file đó; không đổi quyền chia sẻ file sang công khai.
 - iPhone có thể nén lại file khi chọn từ Thư viện: nếu `match` báo thiếu, so theo thời lượng và hỏi Pum đúng clip nào.
 - Whisper nghe tiếng Việt có thể sai chữ: luôn nhắc Pum xem mục Phụ đề trong bản nháp.
