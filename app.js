@@ -1099,7 +1099,8 @@ function stepSend(sb, sc, st, e, stats){
 }
 
 function boardHTML(bd){
-  const th = id => { const t = LS.get("th:" + id, ""); return t ? `<img src="${t}" alt="">` : ""; };
+  const thOf = {}; Object.keys(S.vids).forEach(k => { if (k.startsWith("c_")) (S.vids[k].clips || []).forEach(c => { if (c.th) thOf[c.id] = c.th; }); });
+  const th = id => { const t = thOf[id] || LS.get("th:" + id, ""); return t ? `<img src="${t}" alt="">` : ""; };
   return `
   <div class="bsum"><p>${esc(bd.summary || "")}</p>${bd.length?`<p class="small muted">Dài dự kiến: ${esc(bd.length)}${bd.music && bd.music.length ? ` · Nhạc: ${bd.music.map(m => esc(m.title || m.track)).join(", ")}` : ""}</p>`:""}</div>
   ${(bd.chapters || []).map(c => `<section class="bch"><h4>${esc(c.title)}${c.sec?` <span class="muted small">· khoảng ${fmtT(c.sec)}</span>`:""}</h4>${c.plan?`<p class="small">${esc(c.plan)}</p>`:""}
