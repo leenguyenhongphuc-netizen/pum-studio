@@ -672,6 +672,8 @@ const IC = {
   note:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>',
   star:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
   starOn:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
+  check:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
+  dot:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="12" cy="12" r="7"/></svg>',
   x:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 };
 const KINDS = [["canh","Cảnh"],["noi","Nói tại chỗ"],["vo","Lồng tiếng"]];
@@ -729,6 +731,14 @@ function clipRow(c, key){
     </div>
   </li>`;
 }
+/* mỗi cảnh: kịch bản cần những clip gì, đã có chưa */
+const NEEDK = [["Hình","canh","Cảnh quay"],["Quay thêm","canh","Cảnh thêm"],["Nói","noi","Pum nói tại chỗ"],["Nói thêm","noi","Nói thêm (nếu hứng)"],["Lồng tiếng","vo","Lồng tiếng thu sau"]];
+function needsHTML(b, cl){
+  const rows = []; NEEDK.forEach(([k, kind, lab]) => { const it = b.items.find(x => x.k.split(" (")[0] === k); if (it && it.v) rows.push({kind, lab, v:it.v.replace(/\*\*/g, "")}); });
+  if (!rows.length) return "";
+  return `<ul class="needs">${rows.map(r => { const ok = cl.some(c => c.kind === r.kind); return `<li class="${ok?"ok":""}"><span class="nk">${ok?IC.check:IC.dot}${esc(r.lab)}</span><p>${esc(r.v)}</p></li>`; }).join("")}</ul>`;
+}
+const REASONS = ["Gặp người thú vị", "Cảnh đẹp bất ngờ", "Phản ứng thật, buồn cười", "Món hoặc chỗ không có trong kịch bản", "Mẹo hay cho người xem", "Quay dự phòng để nối cảnh"];
 function clipBox(key, label, n){
   const cl = clipList(key);
   return `<ul class="clips">${cl.map(c => clipRow(c, key)).join("")}</ul>
@@ -795,17 +805,20 @@ function stepClips(sb, sc, st, e, stats){
   const full = s => s.beats.length && s.beats.every(b => clipList(b.key).length);
   const ex = clipDoc(sec.id + "x");
   sb.innerHTML = `
-  <p class="small muted dhelp">Quay xong cảnh nào thì gắn clip vào đúng cảnh đó. Một cảnh gắn bao nhiêu clip cũng được: các lần quay lại, cảnh không lời, cảnh Pum nói, file lồng tiếng. Clip vẫn nằm trên điện thoại, app chỉ ghi tên file để AI tìm đúng.</p>
+  <p class="small muted dhelp">Mỗi cảnh ghi sẵn kịch bản cần những clip gì; gắn đủ loại nào thì loại đó hiện dấu tích. Gắn bao nhiêu clip cũng được: các lần quay lại, cảnh không lời, cảnh Pum nói, file lồng tiếng. Take nào ưng thì chạm sao, take nào hỏng thì ghi chú để AI bỏ qua. Clip vẫn nằm trên điện thoại, app chỉ ghi tên file.</p>
   <nav class="daypick" aria-label="Chọn chương">${parts.map(p => `<button data-dsec="${secKey(p)}" aria-pressed="${secKey(p)===cur}" class="${full(p)?"done":""}">${lab(p)}</button>`).join("")}</nav>
   <section class="vsec" style="border-top:0;margin-top:8px;padding-top:6px">
     <h2 class="disp">${esc(sec.title.replace(/\s*\(.*\)$/,""))}</h2>
     ${sec.beats.map(b => { const x = S.beats[b.key] || {}, cl = clipList(b.key); return `<article class="dbeat ${cl.length?"has":""}">
-      <header><h3>${esc(b.title)}</h3><span class="tag ${cl.length?"":"soft"}">${cl.length ? cl.length + " clip" : "chưa có clip"}</span>${x.shot?`<span class="tag soft">đã quay</span>`:""}</header>
+      <header><h3>${esc(b.title)}</h3><span class="tag ${cl.length?"":"soft"}">${cl.length ? cl.length + " clip" : "chưa có clip"}</span>${x.shot?`<span class="tag ok">đã quay</span>`:""}</header>
+      ${needsHTML(b, cl)}
+      ${x.note?`<p class="small dnote"><b>Ghi chú lúc quay:</b> ${esc(x.note)}</p>`:""}
       ${clipBox(b.key, "cảnh này", n)}
     </article>`; }).join("")}
     <article class="dbeat extra">
       <header><h3>Quay ngoài kịch bản</h3><span class="tag soft">${clipList(sec.id+"x").length} clip</span></header>
-      <p class="small muted">Có cảnh hay mà kịch bản chưa có? Gắn vào đây và ghi vì sao quay, hoặc ý tưởng Pum muốn AI làm với cảnh đó.</p>
+      <p class="small muted">Có cảnh hay mà kịch bản chưa có? Gắn vào đây, chạm gợi ý hoặc tự ghi vì sao quay và muốn AI đặt cảnh đó ở đâu.</p>
+      <div class="rchips" role="group" aria-label="Gợi ý lý do">${REASONS.map(r => `<button type="button" data-rchip="rs-${sec.id}">${esc(r)}</button>`).join("")}</div>
       <label class="f">Vì sao quay, ý tưởng của Pum<textarea id="rs-${sec.id}" data-reason="${sec.id}x" placeholder="Ví dụ: gặp cô bán hàng vui tính, muốn chèn vào trước lúc ăn bánh canh">${esc(ex.reason||"")}</textarea></label>
       ${dictBtn("rs-" + sec.id)}
       ${clipBox(sec.id + "x", "phần này", n)}
@@ -815,6 +828,7 @@ function stepClips(sb, sc, st, e, stats){
   sb.querySelectorAll("[data-dsec]").forEach(b => b.onclick = () => { LS.set(store, b.dataset.dsec); stepClips(sb, sc, st, e, stats); });
   sb.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { LS.set("dungStep" + n, 2); render(); window.scrollTo(0, 0); });
   bindClips(sb, n); bindDict(sb);
+  sb.querySelectorAll("[data-rchip]").forEach(b => b.onclick = async () => { const ta = document.getElementById(b.dataset.rchip); if (!ta) return; ta.value = (ta.value.trim() ? ta.value.trim() + ". " : "") + b.textContent + ": "; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); });
   const on = sb.querySelector('.daypick [aria-pressed="true"]'), dp = sb.querySelector(".daypick"); if (on && dp) dp.scrollLeft = on.offsetLeft - dp.clientWidth/2 + on.offsetWidth/2;
 }
 

@@ -159,6 +159,16 @@ dd.maps{display:flex;flex-wrap:wrap;gap:8px}.testnote{margin:-14px 0 12px}
 .stepper button.done{border-color:var(--ok)}.stepper button.done small{color:var(--ok)}
 .stepper button[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:var(--paper)}.stepper button[aria-pressed=true] small{color:var(--tape)}
 .dhelp{max-width:760px;margin:0 0 6px;font-size:14px}
+.tag.ok{background:#E2F0E8;color:#24654A}
+.needs{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px}
+.needs li{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;background:var(--bg);border-radius:10px;padding:8px 12px;border-left:4px solid var(--line)}
+.needs li.ok{border-left-color:var(--ok)}
+.needs .nk{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:900;color:var(--muted)}.needs li.ok .nk{color:#24654A}
+.needs p{margin:0;font-size:15px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.dnote{background:var(--blush);border-radius:10px;padding:8px 12px;margin:0 0 12px}
+.rchips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:10px 0 12px}
+.rchips button{min-height:44px;border:0;border-radius:12px;background:var(--blush);color:var(--ink);font-weight:800;font-size:14px;line-height:1.2;padding:6px 10px;text-align:left;cursor:pointer}
+@media (min-width:900px){.rchips{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .dbeat{background:var(--paper);border-radius:16px;padding:14px 16px 16px;margin-top:12px}
 .dbeat.has{background:#FFF6F9}.dbeat.extra{background:var(--paper);border:2px dashed var(--tape)}
 .dbeat header{display:flex;align-items:center;flex-wrap:wrap;gap:6px 4px;margin-bottom:10px}
@@ -491,6 +501,6 @@ details.prev{margin-top:48px;color:var(--muted)}details.prev>summary{cursor:poin
   document.addEventListener("visibilitychange", function(){ if (!document.hidden) check(); });
   setTimeout(check, 5000);
 })();
-</script><script>window.PUMV='1794902326'</script><script src="gate.js?v=1794902326"></script>
+</script><script>window.PUMV='1794903341'</script><script src="gate.js?v=1794903341"></script>
 </body>
 </html>
