@@ -157,7 +157,7 @@ function render(){
   if (active){ const el = document.getElementById(active); if (el && el !== document.activeElement){ if (keepVal != null && "value" in el && el.dataset.keep !== "0") el.value = keepVal; el.focus({preventScroll:true}); } }
   if (same && Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
 }
-window.addEventListener("hashchange", () => { closeSheet(); window.scrollTo(0,0); render(); });
+window.addEventListener("hashchange", () => { closeSheet(); clearTimeout(stay.t); $("#view").style.minHeight = ""; window.scrollTo(0,0); render(); });
 const postcard = (k, cap) => k ? `<figure class="post"><img src="${img(k)}" alt="${esc(cap)}"><figcaption>${esc(cap)}</figcaption></figure>` : `<figure class="post plain"><img src="brand/camera.png" alt=""></figure>`;
 
 /* ---------- Hôm nay ---------- */
@@ -478,6 +478,28 @@ function itemsHTML(items){ return `<dl class="lines">${items.map(it=>{
   const tts = /^(Nói|Lồng tiếng)/.test(it.k) ? `<span class="ttsbox"><button type="button" class="tts" data-tts aria-label="Đọc to đoạn này"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg><span>Nghe</span></button><button type="button" class="ttsr" data-ttsrate aria-label="Đổi tốc độ đọc">${TTS.rateLabel()}</button></span>` : "";
   return `<dt class="${/^Nói/.test(it.k)?"k-say":""}"><span>${esc(lab)}</span>${tts}</dt><dd class="${it.k==="Nói thêm"?"say alt":/^Nói/.test(it.k)?"say":/^Lồng tiếng/.test(it.k)?"vo":/^Chữ trên hình/.test(it.k)?"ost":""}">${inline(it.v)}</dd>`; }).join("")}</dl>`; }
 function secKey(s){ return s.kind === "day" ? "d" + s.d : s.id; }
+/* giữ nguyên chỗ đang xem khi bấm chọn: không nhảy dọc, thanh chọn ngang không tự trượt */
+const hScroll = {};
+function keepX(root, sel, key){
+  const el = root.querySelector(sel); if (!el) return;
+  if (hScroll[key] != null) el.scrollLeft = hScroll[key];
+  const on = el.querySelector('[aria-pressed="true"]');
+  if (on){ const er = el.getBoundingClientRect(), r = on.getBoundingClientRect();
+    if (r.left < er.left) el.scrollLeft += r.left - er.left - 8;
+    else if (r.right > er.right) el.scrollLeft += r.right - er.right + 8; }
+  hScroll[key] = el.scrollLeft;
+  el.addEventListener("scroll", () => { hScroll[key] = el.scrollLeft; }, {passive:true});
+}
+function stay(sel, fn){
+  const v = $("#view"), old = document.querySelector(sel), y0 = old ? old.getBoundingClientRect().top : null;
+  v.style.minHeight = v.offsetHeight + "px";
+  fn();
+  const nw = document.querySelector(sel);
+  if (nw && y0 != null){ const d = nw.getBoundingClientRect().top - y0; if (Math.abs(d) > 1) window.scrollBy(0, d); }
+  /* thả chiều cao giữ chỗ nhưng không để trang ngắn lại tới mức kéo màn hình đang xem đi chỗ khác */
+  clearTimeout(stay.t); stay.t = setTimeout(() => { const need = Math.ceil(window.scrollY + innerHeight - (v.getBoundingClientRect().top + window.scrollY)); v.style.minHeight = need > 0 ? need + "px" : ""; }, 1200);
+}
+function toTop(sel){ const el = document.querySelector(sel); if (!el) return; const top = el.getBoundingClientRect().top + window.scrollY - (innerWidth < 900 ? 70 : 16); if (window.scrollY > top) window.scrollTo(0, top); }
 function renderShoot(body, sc, focus, st){
   const parts = sc.sections.filter(s => s.kind !== "list"), lists = sc.sections.filter(s => s.kind === "list");
   const keys = parts.map(secKey).concat(lists.length ? ["ghichu"] : []);
@@ -508,8 +530,8 @@ function renderShoot(body, sc, focus, st){
   body.innerHTML = html;
   bindBeats(body);
   body.querySelectorAll("[data-day]").forEach(b => b.onclick = () => openDay(Number(b.dataset.day)));
-  body.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => { if (!b.dataset.sec) return; LS.set(store, b.dataset.sec); if (/\/d\d+$/.test(location.hash)) history.replaceState(null, "", "#/san-xuat/" + st.n); const top = b.closest(".pager"); renderShoot(body, sc, null, st); if (top){ const dp = body.querySelector(".daypick"); window.scrollTo({top: dp.getBoundingClientRect().top + scrollY - 70}); } });
-  const on = body.querySelector('.daypick [aria-pressed="true"]'), dpk = body.querySelector(".daypick"); if (on && dpk) dpk.scrollLeft = on.offsetLeft - dpk.clientWidth/2 + on.offsetWidth/2;
+  body.querySelectorAll("[data-sec]").forEach(b => b.onclick = () => { if (!b.dataset.sec) return; LS.set(store, b.dataset.sec); if (/\/d\d+$/.test(location.hash)) history.replaceState(null, "", "#/san-xuat/" + st.n); const fromPager = b.closest(".pager"); if (fromPager){ renderShoot(body, sc, null, st); toTop(".daypick"); } else stay(".daypick", () => renderShoot(body, sc, null, st)); });
+  keepX(body, ".daypick", "shoot" + st.n);
 }
 function beatHTML(b){
   const x = S.beats[b.key] || {}; const att = (x.clips||[]).length + (x.voices||[]).length;
@@ -790,8 +812,8 @@ function renderPublish(body, sc, st){
   ${e.status ? `<p class="estat" role="status"><b>${esc(ESTAT[e.status] || e.status)}</b>${e.agentMsg ? ` · ${esc(e.agentMsg)}` : ""}</p>` : ""}
   <nav class="stepper" aria-label="Các bước dựng">${names.map(([t, s], i) => `<button type="button" data-step="${i+1}" aria-pressed="${cur===i+1}" class="${i+1<auto?"done":""}"><b>${i+1}. ${t}</b><small>${esc(s)}</small></button>`).join("")}</nav>
   <div id="stepBody"></div>`;
-  body.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { LS.set(sk, Number(b.dataset.step)); renderPublish(body, sc, st); });
-  const son = body.querySelector('.stepper [aria-pressed="true"]'), stp = body.querySelector(".stepper"); if (son && stp) stp.scrollLeft = son.offsetLeft - 8;
+  body.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { LS.set(sk, Number(b.dataset.step)); stay(".stepper", () => renderPublish(body, sc, st)); });
+  keepX(body, ".stepper", "step" + n);
   const sb = $("#stepBody");
   ({1:stepClips, 2:stepSend, 3:stepBoard, 4:stepDraft, 5:stepPost})[cur](sb, sc, st, e, stats);
 }
@@ -825,11 +847,11 @@ function stepClips(sb, sc, st, e, stats){
     </article>
   </section>
   <div class="row" style="margin-top:20px"><button class="btn" data-step="2">Xong, qua bước gửi AI</button></div>`;
-  sb.querySelectorAll("[data-dsec]").forEach(b => b.onclick = () => { LS.set(store, b.dataset.dsec); stepClips(sb, sc, st, e, stats); });
-  sb.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { LS.set("dungStep" + n, 2); render(); window.scrollTo(0, 0); });
+  sb.querySelectorAll("[data-dsec]").forEach(b => b.onclick = () => { LS.set(store, b.dataset.dsec); stay("#stepBody .daypick", () => stepClips(sb, sc, st, e, stats)); });
+  sb.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { LS.set("dungStep" + n, 2); render(); toTop(".stepper"); });
   bindClips(sb, n); bindDict(sb);
   sb.querySelectorAll("[data-rchip]").forEach(b => b.onclick = async () => { const ta = document.getElementById(b.dataset.rchip); if (!ta) return; ta.value = (ta.value.trim() ? ta.value.trim() + ". " : "") + b.textContent + ": "; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); });
-  const on = sb.querySelector('.daypick [aria-pressed="true"]'), dp = sb.querySelector(".daypick"); if (on && dp) dp.scrollLeft = on.offsetLeft - dp.clientWidth/2 + on.offsetWidth/2;
+  keepX(sb, ".daypick", "dung" + n);
 }
 
 function manifestText(sc){
