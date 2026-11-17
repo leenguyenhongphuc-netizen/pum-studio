@@ -667,6 +667,13 @@ function renderPost(body, sc, st){
   fxWire(body);
 }
 /* ---------- Dựng: đi song song với kịch bản ---------- */
+const IC = {
+  play:'<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>',
+  note:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>',
+  star:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
+  starOn:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
+  x:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
+};
 const KINDS = [["canh","Cảnh"],["noi","Nói tại chỗ"],["vo","Lồng tiếng"]];
 const ESTAT = {gui:"Đã gửi cho AI", de_xuat:"AI đã gửi hướng dựng", duyet:"Pum đã duyệt hướng dựng", dang_dung:"AI đang dựng", nhap:"Có bản nháp", sua:"AI đang sửa theo góp ý", chot:"AI đang xuất bản cuối", xong:"Đã có bản cuối"};
 const NOTEK = {bo:"Bỏ đoạn này", ngan:"Cắt ngắn lại", take:"Đổi take khác", chu:"Sửa chữ trên hình", sub:"Sửa phụ đề", nhac:"Đổi nhạc", y:"Góp ý"};
@@ -710,15 +717,15 @@ async function addFiles(files, key, n, extraKeep){
 function clipRow(c, key){
   const th = LS.get("th:" + c.id, "");
   return `<li class="clip" data-cid="${c.id}" data-key="${key}">
-    <div class="cth ${c.kind==="vo"?"is-vo":""}">${th?`<img src="${th}" alt="">`:`<span aria-hidden="true">${c.kind==="vo"?"♪":"▶"}</span>`}</div>
+    <div class="cth ${c.kind==="vo"?"is-vo":""}">${th?`<img src="${th}" alt="">`:`${c.kind==="vo"?IC.note:IC.play}`}</div>
     <div class="cmain">
       <p class="cname"><b>${esc(c.name)}</b><span>${fmtT(c.dur)}${c.size?` · ${fmtSize(c.size)}`:""}${c.h>c.w&&c.w?" · dọc":""}</span></p>
       <div class="ckind" role="group" aria-label="Loại clip">${KINDS.map(([k,t])=>`<button type="button" data-kind="${k}" aria-pressed="${c.kind===k}">${t}</button>`).join("")}</div>
       <input type="text" class="cnote" data-note="1" value="${esc(c.note||"")}" placeholder="Ghi chú take" aria-label="Ghi chú cho clip ${esc(c.name)}">
     </div>
     <div class="cact">
-      <button type="button" class="cbest" data-best="1" aria-pressed="${!!c.best}" aria-label="Take ưng nhất">${c.best?"★":"☆"}<small>Ưng</small></button>
-      <button type="button" class="cdel" data-delclip="1" aria-label="Bỏ clip ${esc(c.name)}">×</button>
+      <button type="button" class="cbest" data-best="1" aria-pressed="${!!c.best}" aria-label="Take ưng nhất">${c.best?IC.starOn:IC.star}<small>Ưng</small></button>
+      <button type="button" class="cdel" data-delclip="1" aria-label="Bỏ clip ${esc(c.name)}">${IC.x}</button>
     </div>
   </li>`;
 }
@@ -886,30 +893,31 @@ function stepDraft(sb, sc, st, e){
   <section class="pub draftbox">
     <h3 class="disp">Bản nháp v${v} ${e.draftDur ? `<span class="tag soft">${fmtT(e.draftDur)}</span>` : ""}</h3>
     <div class="player" id="plWrap">${draftURL[k] ? `<video id="dv" controls playsinline src="${draftURL[k]}"></video>` : `<button class="btn rose" id="openDraft">Mở bản nháp${e.draftSize ? ` (${fmtSize(e.draftSize)})` : ""}</button><p class="small muted">Nên mở bằng wifi. Đây là bản nhẹ để xem; bản đẹp 1080p AI gửi trong chat khi chốt.</p>`}</div>
-    <div class="tlhead"><span class="small muted">Chạm vào một đoạn để tua tới và góp ý</span><span class="zoom"><button type="button" data-z="-1" aria-label="Thu nhỏ dòng thời gian">−</button><button type="button" data-z="1" aria-label="Phóng to dòng thời gian">+</button></span></div>
+    <div class="tlhead"><span class="small muted">Chạm vào một hình để tua tới và góp ý</span><span class="zoom"><button type="button" data-z="-1" aria-label="Thu nhỏ dòng thời gian">−</button><button type="button" data-z="1" aria-label="Phóng to dòng thời gian">+</button></span></div>
+    <p class="tllegend" aria-hidden="true"><span><i style="background:var(--ink)"></i>Hình</span><span><i style="background:var(--tape)"></i>Chữ trên hình</span><span><i style="background:var(--blush)"></i>Lồng tiếng</span><span><i style="background:#EFE6EA"></i>Nhạc</span></p>
     <div class="tl" id="tl"><p class="muted small" style="padding:12px">Đang mở dòng thời gian…</p></div>
     <div id="segAct"></div>
     <div class="row" style="margin-top:12px"><button class="btn ghost" data-noteat="1">Góp ý tại giây đang xem</button></div>
   </section>
   <section class="pub">
     <h3 class="disp">Góp ý trên bản nháp <span class="tag ${notes.length?"":"soft"}">${notes.length}</span></h3>
-    ${notes.length ? `<ul class="notes">${notes.map(x => `<li><button type="button" class="tbtn" data-seek="${x.t||0}">${fmtT(x.t)}</button><div><b>${esc(NOTEK[x.kind] || "Góp ý")}</b>${x.seg ? ` · ${esc(x.segLabel || "")}` : ""}<p>${esc(x.text || "")}</p></div><button type="button" class="cdel" data-delnote="${x.id}" aria-label="Xoá góp ý">×</button></li>`).join("")}</ul>` : `<p class="muted">Chưa có góp ý nào. Xem bản nháp, chạm vào đoạn muốn sửa.</p>`}
+    ${notes.length ? `<ul class="notes">${notes.map(x => `<li><button type="button" class="tbtn" data-seek="${x.t||0}">${fmtT(x.t)}</button><div><b>${esc(NOTEK[x.kind] || "Góp ý")}</b>${x.seg ? ` · ${esc(x.segLabel || "")}` : ""}<p>${esc(x.text || "")}</p></div><button type="button" class="cdel" data-delnote="${x.id}" aria-label="Xoá góp ý">${IC.x}</button></li>`).join("")}</ul>` : `<p class="muted">Chưa có góp ý nào. Xem bản nháp, chạm vào đoạn muốn sửa.</p>`}
     <details class="miss" id="subBox"><summary>Phụ đề (sửa chữ nghe sai)</summary><div id="subList"><p class="small muted">Mở bản nháp để xem phụ đề.</p></div></details>
     <div class="row" style="margin-top:14px"><button class="btn rose" data-fix="1" ${notes.length ? "" : "disabled"}>Gửi góp ý cho AI sửa</button><button class="btn" data-final="1">Ưng rồi, xuất bản cuối</button></div>
     ${e.status === "sua" || e.status === "chot" ? `<p class="small muted" style="margin-top:10px">Nhắn Claude trong chat: <code>${e.status === "sua" ? "Sửa bản nháp tập " + esc(String(n)) : "Xuất bản cuối tập " + esc(String(n))}</code></p>` : ""}
   </section>`;
-  let TL = null, z = Number(LS.get("tlz", 6));
+  let TL = null, z = Number(LS.get("tlz", 14));
   const addNote = async o => { const all = (e.notes || []).slice(); all.push(Object.assign({id:uid(), v, at:Date.now()}, o)); await saveEd(n, {notes: all}); toast("Đã ghi góp ý"); };
   const vid = () => $("#dv");
   const drawTL = () => {
-    if (!TL) return; const box = $("#tl"), W = Math.max(box.clientWidth - 8, TL.dur * z);
-    const blk = (a, b, cls, inner, attrs="") => `<div class="tb ${cls}" style="left:${a*z}px;width:${Math.max(6,(b-a)*z-2)}px" ${attrs}>${inner}</div>`;
+    if (!TL) return; const box = $("#tl"); z = Math.max(z, (box.clientWidth - 8) / TL.dur); const W = TL.dur * z;
+    const blk = (a, b, cls, inner, attrs="") => `<div class="tb ${cls}" style="left:${a*z}px;width:${Math.max(cls==="vs"?44:6,(b-a)*z-2)}px" ${attrs}>${inner}</div>`;
     const ticks = []; const step = z >= 12 ? 5 : z >= 6 ? 10 : z >= 3 ? 30 : 60; for (let t = 0; t <= TL.dur; t += step) ticks.push(`<span style="left:${t*z}px">${fmtT(t)}</span>`);
     const texts = [], vos = []; TL.segments.forEach(s => { (s.text||[]).forEach(t => texts.push(blk(s.start, s.end, "tx", esc(t)))); if (s.vo) vos.push(blk(s.start, s.end, "vo", "Lồng tiếng")); });
     box.innerHTML = `<div class="tlin" style="width:${W}px"><div class="ruler">${ticks.join("")}</div>
       <div class="trk vids">${TL.segments.map((s, i) => blk(s.start, s.end, "vs", `${s.thumb ? `<img src="${s.thumb}" alt="">` : ""}<span>${esc(s.label || "")}</span>`, `data-si="${i}" role="button" tabindex="0" aria-label="Đoạn ${esc(s.label||"")} từ ${fmtT(s.start)}"`)).join("")}</div>
       <div class="trk">${texts.join("")}</div><div class="trk">${vos.join("")}</div>
-      <div class="trk">${(TL.music || []).map(m => blk(m.start, m.end, "mu", "♪ " + esc(m.title || m.track))).join("")}</div>
+      <div class="trk">${(TL.music || []).map(m => blk(m.start, m.end, "mu", "Nhạc · " + esc(m.title || m.track))).join("")}</div>
       <i class="ph" id="ph"></i></div>`;
     box.querySelectorAll("[data-si]").forEach(b => { const go = () => selSeg(Number(b.dataset.si)); b.onclick = go; b.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); go(); } }; });
     syncPH();
