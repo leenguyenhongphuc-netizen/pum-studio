@@ -17,6 +17,7 @@ Dùng khi nhắn: "Dựng tập … từ Pum Studio", "Dựng tiếp tập …",
 ## Chuẩn bị mỗi phiên
 - Repo: `leenguyenhongphuc-netizen/pum-studio` (gắn bằng add_repo, access "push"), clone vào `/home/claude/pum-studio`. Công cụ ở `tools/dung/`.
 - `pip install --break-system-packages faster-whisper cryptography pillow numpy`; cần ffmpeg có libass, libvpx.
+- Concat (trình dựng mã nguồn mở, github.com/jub0t/Concat, AGPL-3.0): `python3 -I concat_mcp.py install` (tải bản .deb Linux từ trang Concat, giải nén vào `~/.local/concat`, không cần quyền root). Kiểm: `python3 -I concat_mcp.py` in ra phiên bản, chế độ `headless`.
 - Mật khẩu app (đọc kịch bản, ghi trạng thái, mã hoá bản nháp): `export PUM_PASS=<mật khẩu app>` (có trong skill riêng của anh Phúc). Không ghi mật khẩu vào repo, Project hay tin nhắn công khai.
 - Phông chữ (Be Vietnam Pro, Nunito, Playfair) và nhạc tự tải về `/home/claude/cache` khi chạy.
 - Tập test có hai kịch bản: `test` (bản gốc) và `testlate` (bản dậy muộn). Dùng đúng mã tập mà app ghi trong `edits` (xem `fetch`).
@@ -31,6 +32,7 @@ Dùng khi nhắn: "Dựng tập … từ Pum Studio", "Dựng tiếp tập …",
 | Dựng | `render.py <ep> edl.json` → `work/<ep>/v<N>/final.mp4, proxy.mp4, timeline.json, credits.txt` |
 | Kiểm kỹ thuật | `qa.py <ep> <N>` + xem mọi ảnh `qa/sheet_*.jpg` |
 | Đưa bản nháp lên app | `pumdung.py draft <ep> <N> "lời nhắn"` (mã hoá, đẩy lên web, ghi trạng thái) |
+| Dự án Concat chỉnh tay | `concat_build.py <ep> edl.json` → `v<N>/concat_project.zip` + `concat_final.mp4` (khoảng 3 giây máy cho 1 giây video) |
 | Báo bản cuối | gửi `final.mp4` bằng SendUserFile, rồi `pumdung.py final <ep> <N>` |
 
 ## Hướng dựng (board.json, bước 3)
@@ -68,6 +70,14 @@ Lời nói, giá, tên món, cảm nhận của Pum chỉ lấy từ clip hoặc
 - Âm: lời nói rõ nhất; nhạc nhỏ, tự hạ khi có lời (render đã nén theo lời); âm môi trường giữ ở cảnh không lời; tổng -14 LUFS.
 - Chữ: `tape` cho hook và kết luận, `postcard` cho nơi/thời điểm, `price` cho giá có nơi và ngày, `label` cho nhãn series, `question` + Mini Pum cho lời mời cuối. Chuyển cảnh thương hiệu chỉ khi đổi chương hoặc đổi nơi.
 - Kết: một câu hỏi, không xin like/đăng ký, không outro logo.
+
+## Concat: dự án để Pum tự chỉnh tay
+Concat chạy không cửa sổ qua MCP (`concat --mcp headless`, gói gọn trong `concat_mcp.py`: `Concat().call(tên_công_cụ, tham_số)`; 46 công cụ: project_create, media_import, clip_add, clip_trim, clips_move, clip_update, title_add, captions_add, effect_layer_add, export_start, preview_frame…).
+- `render.py` vẫn là bản giao chính (chữ thương hiệu nghiêng đúng DNA, nhạc tự hạ theo lời, nhanh hơn). `concat_build.py` dựng **cùng edl.json** thành dự án Concat: mỗi đoạn một clip trên dòng thời gian, lồng tiếng, chữ, phụ đề, nhạc, hiệu ứng âm ở lane riêng; lời nói qua `concat.denoise` + `concat.enhance-voice`; clip dọc nền mờ; chuyển cảnh lấy từ thư viện Concat; cuối cùng chuẩn -14 LUFS bằng ffmpeg.
+- Gửi `concat_project.zip` khi Pum muốn tự kéo cắt: giải nén, mở bằng app Concat (máy tính hoặc Android), chỉ cho Concat thư mục clip gốc nếu báo thiếu (dự án chỉ ghi đường dẫn, không chứa clip).
+- Dùng thêm khi cần: `clip_stabilize` cho cảnh rung, `concat.denoise` cho tiếng gió, bộ lọc màu (`concat.natural`, `concat.golden-hour` cho hoàng hôn; không phủ màu làm sai món ăn), `preview_frame` để tự xem khung hình.
+- Lưu ý đã gặp: chữ nghiêng làm mất dấu chồng (Ủ, Ẩ) nên chữ trong Concat để đứng; `strokeWidth` tính theo chiều cao khung (0.004 là viền mảnh, 0.1 thành mảng đặc); hai mảng chữ chồng nhau sẽ che dấu của dòng dưới.
+- Concat không ghi ngoài thư mục được phép: đặt `CONCAT_MCP_ROOTS` (mặc định `/home/claude`).
 
 ## Sửa theo góp ý (bước 4 lặp lại)
 `fetch` in ra `notes` của bản đang xem (bỏ, ngắn lại, đổi take, sửa chữ, đổi nhạc, sửa phụ đề, góp ý tại giây). Áp từng góp ý vào edl.json, tăng `ver`, dựng lại, chạy qa, chấm lại, rồi `draft`. Phụ đề Pum sửa thì ghi vào `subs` của đoạn đó.
