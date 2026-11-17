@@ -1,0 +1,25 @@
+{
+  "_nguon": "Kevin MacLeod (incompetech.com), giấy phép Creative Commons Attribution 4.0. Miễn phí, được dùng trên YouTube và TikTok, bắt buộc ghi tên bài và tác giả ở mô tả (YouTube) hoặc caption (TikTok). Tải: https://incompetech.com/music/royalty-free/mp3-royaltyfree/<file>. Không dùng nhạc không có trong danh sách này.",
+  "credit": "{title} Kevin MacLeod (incompetech.com)\nLicensed under Creative Commons: By Attribution 4.0 License\nhttp://creativecommons.org/licenses/by/4.0/",
+  "tracks": [
+    {"id": "carefree", "title": "Carefree", "file": "Carefree.mp3", "mood": ["vui", "đi đường", "mở tập"], "bpm": 96, "note": "ukulele, marimba, sáng và nhí nhảnh"},
+    {"id": "life_of_riley", "title": "Life of Riley", "file": "Life of Riley.mp3", "mood": ["vui", "đi đường", "khám phá"], "bpm": 102, "note": "ukulele, glockenspiel"},
+    {"id": "rainbows", "title": "Rainbows", "file": "Rainbows.mp3", "mood": ["nhẹ", "vui", "khám phá"], "bpm": 110, "note": "marimba, ukulele, cello"},
+    {"id": "daily_beetle", "title": "Daily Beetle", "file": "Daily Beetle.mp3", "mood": ["nhẹ", "dễ thương", "ăn uống"], "bpm": 100, "note": "ukulele, music box, toy piano"},
+    {"id": "fretless", "title": "Fretless", "file": "Fretless.mp3", "mood": ["nhẹ", "đi đường", "farm"], "bpm": 100, "note": "guitar, ukulele, glockenspiel"},
+    {"id": "carpe_diem", "title": "Carpe Diem", "file": "Carpe Diem.mp3", "mood": ["vui", "mở tập"], "bpm": 96, "note": "clarinet, ukulele, xylophone"},
+    {"id": "bossa_antigua", "title": "Bossa Antigua", "file": "Bossa Antigua.mp3", "mood": ["thư thả", "ăn uống", "quán"], "bpm": 70, "note": "guitar bossa nova"},
+    {"id": "summer_day", "title": "Summer Day", "file": "Summer Day.mp3", "mood": ["thư thả", "chiều", "nghỉ"], "bpm": 60, "note": "guitar, electric piano"},
+    {"id": "almost_bliss", "title": "Almost Bliss", "file": "Almost Bliss.mp3", "mood": ["thư thả", "cảnh đẹp"], "bpm": 90, "note": "guitar"},
+    {"id": "morning", "title": "Morning", "file": "Morning.mp3", "mood": ["buổi sáng", "dịu"], "bpm": 60, "note": "classical guitar, harp"},
+    {"id": "teller_of_the_tales", "title": "Teller of the Tales", "file": "Teller of the Tales.mp3", "mood": ["kể chuyện", "lịch sử", "văn hoá"], "bpm": 130, "note": "lute, guitar, trầm và ấm"},
+    {"id": "dream_culture", "title": "Dream Culture", "file": "Dream Culture.mp3", "mood": ["kể chuyện", "văn hoá", "nhẹ"], "bpm": 70, "note": "piano, percussion"},
+    {"id": "reawakening", "title": "Reawakening", "file": "Reawakening.mp3", "mood": ["hoàng hôn", "lắng", "kết"], "bpm": 56, "note": "piano, cello"},
+    {"id": "dreamer", "title": "Dreamer", "file": "Dreamer.mp3", "mood": ["hoàng hôn", "cảnh đẹp", "kết"], "bpm": 100, "note": "piano"},
+    {"id": "onion_capers", "title": "Onion Capers", "file": "Onion Capers.mp3", "mood": ["hài", "phản ứng", "thử món"], "bpm": 105, "note": "piano, tuba, nhún nhảy"},
+    {"id": "cheery_monday", "title": "Cheery Monday", "file": "Cheery Monday.mp3", "mood": ["hài", "dễ thương", "ngắn"], "bpm": 102, "note": "piano, glockenspiel, 1 phút 20"},
+    {"id": "marty_gots_a_plan", "title": "Marty Gots a Plan", "file": "Marty Gots a Plan.mp3", "mood": ["hài", "tò mò", "thử thách"], "bpm": 140, "note": "dây pizzicato, rón rén"},
+    {"id": "late_night_radio", "title": "Late Night Radio", "file": "Late Night Radio.mp3", "mood": ["buổi tối", "quán đêm", "thư thả"], "bpm": 72, "note": "electric piano"},
+    {"id": "jazz_brunch", "title": "Jazz Brunch", "file": "Jazz Brunch.mp3", "mood": ["buổi tối", "ăn uống", "vui"], "bpm": 100, "note": "electric piano, organ"}
+  ]
+}

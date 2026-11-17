@@ -592,20 +592,19 @@ async function record(btn, k){
 function chaptersFrom(sc){
   return sc.sections.filter(s=>s.kind!=="list").map((s,i) => `${i===0?"0:00":"__:__"} ${s.kind==="day"?`Ngày ${s.d} · ${s.title}`:s.title.replace(/\s*\(.*\)$/,"")}`).join("\n");
 }
-function renderPublish(body, sc, st){
+function renderPost(body, sc, st){
   const id = "ep"+st.n, x = S.vids[id] || {}, s = stStats(sc);
   const tk = listSec(sc, /^TikTok/), money = listSec(sc, /^Sổ tiền/), check = listSec(sc, /^Cần Pum/);
   const tiks = (tk ? tk.list : []), tx = x.tiktok || {};
   const tdone = tiks.filter((_,i)=>tx[i] && tx[i].url).length;
-  const steps = [[s.shot===s.tot,"Quay đủ"],[!!x.drive,"Footage lên Drive"],[!!(x.title&&x.thumb),"Tên và thumbnail"],[!!x.chapters&&!/__:__/.test(x.chapters),"Chương"],[!!x.request,"Gửi dựng"],[!!x.posted,"Lên YouTube"],[tiks.length&&tdone===tiks.length,`TikTok ${tdone}/${tiks.length}`]];
+  const steps = [[s.shot===s.tot,"Quay đủ"],[!!ed(sc.n).draftV,"Có bản nháp"],[!!(x.title&&x.thumb),"Tên và thumbnail"],[!!x.chapters&&!/__:__/.test(x.chapters),"Chương"],[!!ed(sc.n).finalV,"Có bản cuối"],[!!x.posted,"Lên YouTube"],[tiks.length&&tdone===tiks.length,`TikTok ${tdone}/${tiks.length}`]];
   const th = x.thumbCity ? x : {thumbCity:st.city, thumbL1:st.labels[0], thumbL2:st.labels[1], thumbL3:st.labels[2]};
   body.innerHTML = `
-  <div class="card"><p class="eyebrowless" style="margin-bottom:8px">Tiến độ tập ${st.n}</p><div class="steps" style="margin:0">${steps.map(([ok,t])=>`<span class="${ok?"ok":""}">${t}</span>`).join("")}</div><p class="small muted" style="margin-top:10px">Ô nào điền xong tự lưu. Mô tả và chữ trên hình chỉ nói điều Pum đã làm thật, giá có nơi và ngày.</p></div>
+  <div class="card"><p class="eyebrowless" style="margin-bottom:8px">Tiến độ đăng</p><div class="steps" style="margin:0">${steps.map(([ok,t])=>`<span class="${ok?"ok":""}">${t}</span>`).join("")}</div><p class="small muted" style="margin-top:10px">Ô nào điền xong tự lưu. Mô tả và chữ trên hình chỉ nói điều Pum đã làm thật, giá có nơi và ngày.</p></div>
   <div class="pubs">
-  <section class="pub ${x.drive&&x.title?"ok":""}">
-    <h3 class="disp">Footage và tên tập</h3>
+  <section class="pub ${x.title?"ok":""}">
+    <h3 class="disp">Tên tập và ngày đăng</h3>
     <div class="grid2" style="gap:14px">
-      <label class="f">Link thư mục Google Drive (footage và giọng thu)<input type="url" id="pb-drive" value="${esc(x.drive||"")}" placeholder="https://drive.google.com/…"></label>
       <label class="f">Ngày đăng<input type="text" id="pb-postDate" value="${esc(x.postDate||"")}" placeholder="${esc(st.post)}"></label>
     </div>
     <label class="f" style="margin-top:14px">Tên tập trên YouTube<input type="text" id="pb-title" value="${esc(x.title||"")}" placeholder="${esc(sc.meta["Tên tập"]||"")}"></label>
@@ -649,12 +648,10 @@ function renderPublish(body, sc, st){
     <label class="f">Link tập đã lên YouTube<input type="url" id="pb-posted" value="${esc(x.posted||"")}" placeholder="https://youtu.be/…"></label>
     <div class="row" style="margin-top:14px">
       <button class="btn" data-savepub="1">Lưu</button>
-      <button class="btn rose" data-send="1" ${x.drive?"":"disabled"}>${x.request?"Gửi lại phiếu dựng":"Gửi phiếu dựng"}</button>
     </div>
-    ${x.request?`<p class="small muted" style="margin-top:8px">Đã gửi lúc ${new Date(x.request.at).toLocaleString("vi-VN")}. Nhắn Claude trong project Pum: “Dựng tập ${st.n} từ Pum Studio”.</p>`:(!x.drive?`<p class="small muted" style="margin-top:8px">Cần link Drive trước khi gửi dựng.</p>`:"")}
   </section>
   </div>`;
-  const F = ["drive","postDate","title","thumbCity","thumbL1","thumbL2","thumbL3","thumb","chapters","desc","posted"];
+  const F = ["postDate","title","thumbCity","thumbL1","thumbL2","thumbL3","thumb","chapters","desc","posted"];
   const collect = () => { const o = {}; F.forEach(f => { const el = document.getElementById("pb-"+f); if (el) o[f] = f==="chapters"||f==="desc" ? el.value : el.value.trim(); }); const t = {}; tiks.forEach((_,i)=>{ const u = (document.getElementById("tk-"+i)||{}).value; t[i] = {url:(u||"").trim()}; }); o.tiktok = t; return o; };
   const save = (extra={}) => put("vids", id, Object.assign(collect(), extra));
   body.querySelectorAll("[data-savepub]").forEach(b => b.onclick = async () => { await save(); toast("Đã lưu tập "+st.n); });
@@ -669,6 +666,305 @@ function renderPublish(body, sc, st){
   body.querySelectorAll("[data-desc]").forEach(b => b.onclick = () => draftDesc(b, sc, st));
   fxWire(body);
 }
+/* ---------- Dựng: đi song song với kịch bản ---------- */
+const KINDS = [["canh","Cảnh"],["noi","Nói tại chỗ"],["vo","Lồng tiếng"]];
+const ESTAT = {gui:"Đã gửi cho AI", de_xuat:"AI đã gửi hướng dựng", duyet:"Pum đã duyệt hướng dựng", dang_dung:"AI đang dựng", nhap:"Có bản nháp", sua:"AI đang sửa theo góp ý", chot:"AI đang xuất bản cuối", xong:"Đã có bản cuối"};
+const NOTEK = {bo:"Bỏ đoạn này", ngan:"Cắt ngắn lại", take:"Đổi take khác", chu:"Sửa chữ trên hình", sub:"Sửa phụ đề", nhac:"Đổi nhạc", y:"Góp ý"};
+const fmtT = s => { s = Math.max(0, Math.round(s||0)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
+const fmtSize = b => !b ? "" : b >= 1e9 ? (b/1e9).toFixed(1).replace(".",",")+" GB" : Math.max(1, Math.round(b/1e6))+" MB";
+const WEBDUNG = () => !!window.PUMDECB;
+/* clip và trạng thái dựng nằm trong kho vids: c_<cảnh> và e_<tập> */
+const clipList = k => (S.vids["c_" + k] || {}).clips || [];
+const clipDoc = k => S.vids["c_" + k] || {};
+const uid = () => Math.random().toString(36).slice(2, 10);
+const ed = n => S.vids["e_" + n] || {};
+async function saveEd(n, o, mine = true){ await put("vids", "e_" + n, mine ? Object.assign({agentMsg:""}, o) : o); }
+async function saveClips(k, n, clips, extra){ await put("vids", "c_" + k, Object.assign({ep:String(n), clips}, extra || {})); }
+
+function probeFile(f){ return new Promise(res => {
+  const audio = /^audio\//.test(f.type) || /\.(m4a|mp3|wav|aac|amr|ogg|opus)$/i.test(f.name);
+  const el = document.createElement(audio ? "audio" : "video"); el.preload = audio ? "metadata" : "auto"; el.muted = true; el.playsInline = true; el.setAttribute("playsinline", "");
+  const url = URL.createObjectURL(f); let done = false;
+  const base = () => ({dur: isFinite(el.duration) ? el.duration : 0, w: el.videoWidth || 0, h: el.videoHeight || 0, audio});
+  const fin = o => { if (done) return; done = true; try{ URL.revokeObjectURL(url); }catch(e){} res(o); };
+  el.onloadedmetadata = () => { if (audio || !el.videoWidth) return fin(Object.assign(base(), {thumb:""})); try{ el.currentTime = Math.min(1, (el.duration || 2) * 0.2); }catch(e){ fin(Object.assign(base(), {thumb:""})); } };
+  el.onseeked = () => { try{ const c = document.createElement("canvas"), w = 160, h = Math.round(w * el.videoHeight / el.videoWidth); c.width = w; c.height = h; c.getContext("2d").drawImage(el, 0, 0, w, h); fin(Object.assign(base(), {thumb:c.toDataURL("image/jpeg", .6)})); }catch(e){ fin(Object.assign(base(), {thumb:""})); } };
+  el.onerror = () => fin({dur:0, w:0, h:0, audio, thumb:""});
+  setTimeout(() => fin(Object.assign(base(), {thumb:""})), 9000);
+  el.src = url;
+});}
+
+async function addFiles(files, key, n, extraKeep){
+  const list = clipList(key).slice(); let i = 0;
+  for (const f of files){
+    i++; toast(`Đang đọc clip ${i}/${files.length}…`);
+    const p = await probeFile(f), id = uid();
+    if (p.thumb) LS.set("th:" + id, p.thumb);
+    list.push({id, name:f.name, size:f.size, dur:Math.round((p.dur||0)*100)/100, w:p.w, h:p.h, mod:f.lastModified || 0,
+      kind: p.audio ? "vo" : (p.w && p.h > p.w ? "noi" : "canh"), note:"", best:false, at:Date.now()});
+  }
+  await saveClips(key, n, list, extraKeep);
+  toast(`Đã gắn ${files.length} clip`);
+}
+
+function clipRow(c, key){
+  const th = LS.get("th:" + c.id, "");
+  return `<li class="clip" data-cid="${c.id}" data-key="${key}">
+    <div class="cth ${c.kind==="vo"?"is-vo":""}">${th?`<img src="${th}" alt="">`:`<span aria-hidden="true">${c.kind==="vo"?"♪":"▶"}</span>`}</div>
+    <div class="cmain">
+      <p class="cname"><b>${esc(c.name)}</b><span>${fmtT(c.dur)}${c.size?` · ${fmtSize(c.size)}`:""}${c.h>c.w&&c.w?" · dọc":""}</span></p>
+      <div class="ckind" role="group" aria-label="Loại clip">${KINDS.map(([k,t])=>`<button type="button" data-kind="${k}" aria-pressed="${c.kind===k}">${t}</button>`).join("")}</div>
+      <input type="text" class="cnote" data-note="1" value="${esc(c.note||"")}" placeholder="Ghi chú take" aria-label="Ghi chú cho clip ${esc(c.name)}">
+    </div>
+    <div class="cact">
+      <button type="button" class="cbest" data-best="1" aria-pressed="${!!c.best}" aria-label="Take ưng nhất">${c.best?"★":"☆"}<small>Ưng</small></button>
+      <button type="button" class="cdel" data-delclip="1" aria-label="Bỏ clip ${esc(c.name)}">×</button>
+    </div>
+  </li>`;
+}
+function clipBox(key, label, n){
+  const cl = clipList(key);
+  return `<ul class="clips">${cl.map(c => clipRow(c, key)).join("")}</ul>
+    <label class="btn small ghost addclip"><input type="file" multiple accept="video/*,audio/*" data-addkey="${key}" hidden>+ Thêm clip${cl.length?"":` cho ${esc(label)}`}</label>`;
+}
+
+function bindClips(root, n){
+  root.querySelectorAll("[data-addkey]").forEach(inp => inp.onchange = async () => {
+    const files = [...inp.files]; if (!files.length) return;
+    const k = inp.dataset.addkey, keep = k.endsWith("x") ? {reason: clipDoc(k).reason || ""} : null;
+    await addFiles(files, k, n, keep); inp.value = "";
+  });
+  const upd = async (li, fn) => { const k = li.dataset.key, cl = clipList(k).map(c => c.id === li.dataset.cid ? fn(Object.assign({}, c)) : c).filter(Boolean); const x = clipDoc(k); await saveClips(k, n, cl, k.endsWith("x") ? {reason:x.reason||""} : null); };
+  root.querySelectorAll(".clip").forEach(li => {
+    li.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => upd(li, c => (c.kind = b.dataset.kind, c)));
+    li.querySelector("[data-best]").onclick = () => upd(li, c => (c.best = !c.best, c));
+    li.querySelector("[data-delclip]").onclick = () => { if (confirm("Bỏ clip này khỏi cảnh? File trên điện thoại vẫn còn.")) upd(li, () => null); };
+    const nt = li.querySelector("[data-note]"); nt.dataset.keep = "0"; nt.onchange = () => upd(li, c => (c.note = nt.value.trim(), c));
+  });
+  root.querySelectorAll("[data-reason]").forEach(ta => { ta.dataset.keep = "0"; ta.onchange = async () => { const k = ta.dataset.reason; await saveClips(k, n, clipList(k), {reason: ta.value}); toast("Đã lưu lý do"); }; });
+}
+
+function dungStats(sc){
+  const parts = sc.sections.filter(s => s.kind !== "list"); let beats = 0, withClip = 0, clips = 0, dur = 0, size = 0, extra = 0;
+  parts.forEach(p => { p.beats.forEach(b => { beats++; const c = clipList(b.key); if (c.length) withClip++; c.forEach(x => { clips++; dur += x.dur||0; size += x.size||0; }); });
+    clipList(p.id + "x").forEach(x => { clips++; extra++; dur += x.dur||0; size += x.size||0; }); });
+  return {beats, withClip, clips, dur, size, extra};
+}
+
+function stepOf(e, st){
+  if (["xong"].includes(e.status)) return 5;
+  if (e.draftV) return 4;
+  if (e.boardV) return 3;
+  if (e.status === "gui") return 2;
+  return 1;
+}
+
+async function encJSON(path){ const r = await fetch(path, {cache:"no-store"}); if (!r.ok) throw 0; return JSON.parse(await window.PUMDEC(await r.arrayBuffer())); }
+
+function renderPublish(body, sc, st){
+  const n = sc.n, e = ed(n), stats = dungStats(sc);
+  if (!WEBDUNG()){
+    body.innerHTML = `<p class="notice">Phần dựng cùng AI chạy trên <a href="https://pum.cherie.io.vn/#/san-xuat/${esc(String(st.n))}" target="_blank" rel="noopener"><b>pum.cherie.io.vn</b></a>, vì bản nháp video nằm ở đó. Phần đăng vẫn ở dưới.</p><div id="postBox"></div>`;
+    renderPost($("#postBox"), sc, st); return;
+  }
+  const auto = stepOf(e, st), sk = "dungStep" + n; let cur = Number(LS.get(sk, 0)) || auto;
+  const names = [["Gắn clip", `${stats.withClip}/${stats.beats} cảnh`], ["Gửi AI", e.sentAt ? "đã gửi" : "chưa gửi"], ["Hướng dựng", e.boardV ? (e.feedback && e.feedback.approved ? "đã duyệt" : "chờ Pum") : "chờ AI"], ["Bản nháp", e.draftV ? `v${e.draftV}` : "chờ AI"], ["Đăng", e.finalV ? "bản cuối" : ""]];
+  body.innerHTML = `
+  ${e.status ? `<p class="estat" role="status"><b>${esc(ESTAT[e.status] || e.status)}</b>${e.agentMsg ? ` · ${esc(e.agentMsg)}` : ""}</p>` : ""}
+  <nav class="stepper" aria-label="Các bước dựng">${names.map(([t, s], i) => `<button type="button" data-step="${i+1}" aria-pressed="${cur===i+1}" class="${i+1<auto?"done":""}"><b>${i+1}. ${t}</b><small>${esc(s)}</small></button>`).join("")}</nav>
+  <div id="stepBody"></div>`;
+  body.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { LS.set(sk, Number(b.dataset.step)); renderPublish(body, sc, st); });
+  const son = body.querySelector('.stepper [aria-pressed="true"]'), stp = body.querySelector(".stepper"); if (son && stp) stp.scrollLeft = son.offsetLeft - 8;
+  const sb = $("#stepBody");
+  ({1:stepClips, 2:stepSend, 3:stepBoard, 4:stepDraft, 5:stepPost})[cur](sb, sc, st, e, stats);
+}
+
+function stepClips(sb, sc, st, e, stats){
+  const n = sc.n, parts = sc.sections.filter(s => s.kind !== "list");
+  const store = "shootSec" + st.n; let cur = LS.get(store, null);
+  if (!parts.some(p => secKey(p) === cur)) cur = secKey(parts[0]);
+  const sec = parts.find(p => secKey(p) === cur);
+  const lab = s => { const t = s.title.replace(/\s*\(.*\)$/,""); const m = t.match(/^(Chương \d+)\s*·\s*(.+)$/); const c = s.beats.filter(b => clipList(b.key).length).length; return `${esc(m ? m[1] : (s.kind==="day" ? "Ngày " + s.d : t))}<small>${c}/${s.beats.length} cảnh có clip</small>`; };
+  const full = s => s.beats.length && s.beats.every(b => clipList(b.key).length);
+  const ex = clipDoc(sec.id + "x");
+  sb.innerHTML = `
+  <p class="small muted dhelp">Quay xong cảnh nào thì gắn clip vào đúng cảnh đó. Một cảnh gắn bao nhiêu clip cũng được: các lần quay lại, cảnh không lời, cảnh Pum nói, file lồng tiếng. Clip vẫn nằm trên điện thoại, app chỉ ghi tên file để AI tìm đúng.</p>
+  <nav class="daypick" aria-label="Chọn chương">${parts.map(p => `<button data-dsec="${secKey(p)}" aria-pressed="${secKey(p)===cur}" class="${full(p)?"done":""}">${lab(p)}</button>`).join("")}</nav>
+  <section class="vsec" style="border-top:0;margin-top:8px;padding-top:6px">
+    <h2 class="disp">${esc(sec.title.replace(/\s*\(.*\)$/,""))}</h2>
+    ${sec.beats.map(b => { const x = S.beats[b.key] || {}, cl = clipList(b.key); return `<article class="dbeat ${cl.length?"has":""}">
+      <header><h3>${esc(b.title)}</h3><span class="tag ${cl.length?"":"soft"}">${cl.length ? cl.length + " clip" : "chưa có clip"}</span>${x.shot?`<span class="tag soft">đã quay</span>`:""}</header>
+      ${clipBox(b.key, "cảnh này", n)}
+    </article>`; }).join("")}
+    <article class="dbeat extra">
+      <header><h3>Quay ngoài kịch bản</h3><span class="tag soft">${clipList(sec.id+"x").length} clip</span></header>
+      <p class="small muted">Có cảnh hay mà kịch bản chưa có? Gắn vào đây và ghi vì sao quay, hoặc ý tưởng Pum muốn AI làm với cảnh đó.</p>
+      <label class="f">Vì sao quay, ý tưởng của Pum<textarea id="rs-${sec.id}" data-reason="${sec.id}x" placeholder="Ví dụ: gặp cô bán hàng vui tính, muốn chèn vào trước lúc ăn bánh canh">${esc(ex.reason||"")}</textarea></label>
+      ${dictBtn("rs-" + sec.id)}
+      ${clipBox(sec.id + "x", "phần này", n)}
+    </article>
+  </section>
+  <div class="row" style="margin-top:20px"><button class="btn" data-step="2">Xong, qua bước gửi AI</button></div>`;
+  sb.querySelectorAll("[data-dsec]").forEach(b => b.onclick = () => { LS.set(store, b.dataset.dsec); stepClips(sb, sc, st, e, stats); });
+  sb.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { LS.set("dungStep" + n, 2); render(); window.scrollTo(0, 0); });
+  bindClips(sb, n); bindDict(sb);
+  const on = sb.querySelector('.daypick [aria-pressed="true"]'), dp = sb.querySelector(".daypick"); if (on && dp) dp.scrollLeft = on.offsetLeft - dp.clientWidth/2 + on.offsetWidth/2;
+}
+
+function manifestText(sc){
+  const lines = [`${sc.title}`];
+  sc.sections.filter(s => s.kind !== "list").forEach(p => {
+    const rows = []; p.beats.forEach(b => clipList(b.key).forEach(c => rows.push(`  ${b.title}: ${c.name} (${fmtT(c.dur)}, ${KINDS.find(k=>k[0]===c.kind)[1]}${c.best?", ưng":""})`)));
+    clipList(p.id + "x").forEach(c => rows.push(`  Ngoài kịch bản: ${c.name} (${fmtT(c.dur)})`));
+    if (rows.length) lines.push(p.title.replace(/\s*\(.*\)$/,""), ...rows);
+  });
+  return lines.join("\n");
+}
+
+function stepSend(sb, sc, st, e, stats){
+  const n = sc.n, parts = sc.sections.filter(s => s.kind !== "list");
+  const missing = []; parts.forEach(p => p.beats.forEach(b => { if (!clipList(b.key).length) missing.push(`${p.title.replace(/\s*\(.*\)$/,"").replace(/^Chương \d+ · /,"")} · ${b.title}`); }));
+  const msg = `Dựng tập ${n === "testlate" ? "test (bản dậy muộn)" : n === "test" ? "test" : n} từ Pum Studio`;
+  sb.innerHTML = `
+  <section class="pub">
+    <h3 class="disp">Gửi cho AI xem</h3>
+    <div class="kpis"><div><b class="num">${stats.clips}</b><span>clip</span></div><div><b class="num">${fmtT(stats.dur)}</b><span>tổng thời lượng</span></div><div><b class="num">${stats.withClip}/${stats.beats}</b><span>cảnh có clip</span></div><div><b class="num">${fmtSize(stats.size) || "0 MB"}</b><span>dung lượng</span></div></div>
+    ${missing.length ? `<details class="miss"><summary>${missing.length} cảnh chưa có clip</summary><ul>${missing.map(m => `<li>${esc(m)}</li>`).join("")}</ul><p class="small muted">Vẫn gửi được. AI sẽ dựng với những gì có và báo chỗ nào thiếu.</p></details>` : `<p class="ok-line">Cảnh nào cũng đã có clip.</p>`}
+    <ol class="howto">
+      <li><b>Bấm “Gửi cho AI”</b> để AI biết clip nào thuộc cảnh nào.</li>
+      <li><b>Mở chat Claude trong project Pum Content Studio</b>, đính kèm đúng các file đã gắn (danh sách ở dưới).</li>
+      <li><b>Nhắn câu này:</b> <code>${esc(msg)}</code></li>
+    </ol>
+    <div class="row"><button class="btn rose" data-sendai="1" ${stats.clips ? "" : "disabled"}>${e.sentAt ? "Gửi lại cho AI" : "Gửi cho AI"}</button><button class="btn ghost" data-copymsg="1">Chép câu nhắn</button><button class="btn ghost" data-copylist="1" ${stats.clips ? "" : "disabled"}>Chép danh sách file</button></div>
+    ${e.sentAt ? `<p class="small muted" style="margin-top:10px">Đã gửi lúc ${new Date(e.sentAt).toLocaleString("vi-VN")}.</p>` : ""}
+    <details class="miss" style="margin-top:14px"><summary>Danh sách file theo chương</summary><pre class="mf">${esc(manifestText(sc))}</pre></details>
+  </section>`;
+  const copy = t => (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Đã chép"), () => toast("Chưa chép được, giữ lâu để chép tay"));
+  sb.querySelector("[data-copymsg]").onclick = () => copy(msg);
+  sb.querySelector("[data-copylist]").onclick = () => copy(manifestText(sc));
+  sb.querySelector("[data-sendai]").onclick = async () => { await saveEd(n, {status:"gui", sentAt:Date.now(), script:`scripts/tap${n}.enc`}); toast("Đã gửi. Giờ qua chat Claude gửi file nha."); };
+}
+
+function boardHTML(bd){
+  const th = id => { const t = LS.get("th:" + id, ""); return t ? `<img src="${t}" alt="">` : ""; };
+  return `
+  <div class="bsum"><p>${esc(bd.summary || "")}</p>${bd.length?`<p class="small muted">Dài dự kiến: ${esc(bd.length)}${bd.music && bd.music.length ? ` · Nhạc: ${bd.music.map(m => esc(m.title || m.track)).join(", ")}` : ""}</p>`:""}</div>
+  ${(bd.chapters || []).map(c => `<section class="bch"><h4>${esc(c.title)}${c.sec?` <span class="muted small">· khoảng ${fmtT(c.sec)}</span>`:""}</h4>${c.plan?`<p class="small">${esc(c.plan)}</p>`:""}
+    <ol class="bsegs">${(c.segs || []).map(s => `<li><div class="bth">${th(s.take || (s.clips||[])[0])}</div><div><p><b>${esc(s.label || "")}</b>${s.sec?` <span class="muted small">${s.sec}s</span>`:""}</p>
+      ${s.use?`<p class="small">${esc(s.use)}</p>`:""}
+      <p class="bmeta">${s.voice?`<span class="tag soft">${esc(s.voice)}</span>`:""}${s.text?`<span class="tag soft">Chữ: ${esc(s.text)}</span>`:""}${s.fx?`<span class="tag soft">${esc(s.fx)}</span>`:""}</p></div></li>`).join("")}</ol></section>`).join("")}
+  ${bd.extras && bd.extras.length ? `<section class="bch"><h4>Cảnh ngoài kịch bản</h4><ul>${bd.extras.map(x => `<li>${esc(x.idea || x)}</li>`).join("")}</ul></section>` : ""}
+  ${bd.missing && bd.missing.length ? `<section class="bch warn"><h4>Còn thiếu</h4><ul>${bd.missing.map(x => `<li>${esc(x)}</li>`).join("")}</ul></section>` : ""}
+  ${bd.questions && bd.questions.length ? `<section class="bch ask"><h4>AI cần Pum trả lời</h4><ol>${bd.questions.map(x => `<li>${esc(x)}</li>`).join("")}</ol></section>` : ""}`;
+}
+
+function stepBoard(sb, sc, st, e){
+  const n = sc.n;
+  if (!e.boardV){ sb.innerHTML = `<section class="pub"><h3 class="disp">Hướng dựng</h3><p class="muted">AI chưa gửi hướng dựng. Sau khi gửi file trong chat, AI xem hết clip rồi đưa hướng dựng lên đây.</p></section>`; return; }
+  const fb = e.feedback || {};
+  sb.innerHTML = `<section class="pub"><h3 class="disp">Hướng dựng AI đề xuất <span class="tag soft">bản ${e.boardV}</span></h3><div id="bdBox"><p class="muted">Đang mở…</p></div></section>
+  <section class="pub">
+    <h3 class="disp">Góp ý của Pum</h3>
+    <label class="f">Muốn đổi gì, thêm gì, bỏ gì? Trả lời luôn câu hỏi của AI ở đây.<textarea id="fbText" style="min-height:150px" placeholder="Ví dụ: mở bằng cảnh dậy muộn, bỏ đoạn đi bộ dài ở buôn, nhạc chương 3 vui hơn">${esc(fb.text || "")}</textarea></label>
+    ${dictBtn("fbText")}
+    <div class="row" style="margin-top:14px"><button class="btn ghost" data-fbsave="1">Lưu góp ý</button><button class="btn rose" data-fbok="1">${fb.approved ? "Đã duyệt · gửi lại" : "Duyệt, cho AI dựng"}</button></div>
+    ${fb.approved ? `<p class="small muted" style="margin-top:10px">Đã duyệt lúc ${new Date(fb.at).toLocaleString("vi-VN")}. Nhắn Claude trong chat: <code>Dựng tiếp tập ${esc(String(n))}</code></p>` : ""}
+  </section>`;
+  const ta = $("#fbText"); ta.dataset.keep = "0";
+  sb.querySelector("[data-fbsave]").onclick = async () => { await saveEd(n, {feedback:{text:ta.value, at:Date.now(), approved:!!fb.approved, v:e.boardV}}); toast("Đã lưu góp ý"); };
+  sb.querySelector("[data-fbok]").onclick = async () => { await saveEd(n, {feedback:{text:ta.value, at:Date.now(), approved:true, v:e.boardV}, status:"duyet"}); toast("Đã duyệt. Nhắn Claude: Dựng tiếp tập " + n); };
+  bindDict(sb);
+  encJSON(`drafts/${n}/board.enc?v=${e.boardV}`).then(bd => { const b = $("#bdBox"); if (b) b.innerHTML = boardHTML(bd); }).catch(() => { const b = $("#bdBox"); if (b) b.innerHTML = `<p class="notice">Chưa mở được hướng dựng. Bấm Tải lại trên cùng thử.</p>`; });
+}
+
+let draftURL = {};
+function stepDraft(sb, sc, st, e){
+  const n = sc.n;
+  if (!e.draftV){ sb.innerHTML = `<section class="pub"><h3 class="disp">Bản nháp</h3><p class="muted">Chưa có bản nháp. Duyệt hướng dựng xong, nhắn Claude để AI dựng.</p></section>`; return; }
+  const v = e.draftV, notes = (e.notes || []).filter(x => x.v === v), k = `${n}:${v}`;
+  sb.innerHTML = `
+  <section class="pub draftbox">
+    <h3 class="disp">Bản nháp v${v} ${e.draftDur ? `<span class="tag soft">${fmtT(e.draftDur)}</span>` : ""}</h3>
+    <div class="player" id="plWrap">${draftURL[k] ? `<video id="dv" controls playsinline src="${draftURL[k]}"></video>` : `<button class="btn rose" id="openDraft">Mở bản nháp${e.draftSize ? ` (${fmtSize(e.draftSize)})` : ""}</button><p class="small muted">Nên mở bằng wifi. Đây là bản nhẹ để xem; bản đẹp 1080p AI gửi trong chat khi chốt.</p>`}</div>
+    <div class="tlhead"><span class="small muted">Chạm vào một đoạn để tua tới và góp ý</span><span class="zoom"><button type="button" data-z="-1" aria-label="Thu nhỏ dòng thời gian">−</button><button type="button" data-z="1" aria-label="Phóng to dòng thời gian">+</button></span></div>
+    <div class="tl" id="tl"><p class="muted small" style="padding:12px">Đang mở dòng thời gian…</p></div>
+    <div id="segAct"></div>
+    <div class="row" style="margin-top:12px"><button class="btn ghost" data-noteat="1">Góp ý tại giây đang xem</button></div>
+  </section>
+  <section class="pub">
+    <h3 class="disp">Góp ý trên bản nháp <span class="tag ${notes.length?"":"soft"}">${notes.length}</span></h3>
+    ${notes.length ? `<ul class="notes">${notes.map(x => `<li><button type="button" class="tbtn" data-seek="${x.t||0}">${fmtT(x.t)}</button><div><b>${esc(NOTEK[x.kind] || "Góp ý")}</b>${x.seg ? ` · ${esc(x.segLabel || "")}` : ""}<p>${esc(x.text || "")}</p></div><button type="button" class="cdel" data-delnote="${x.id}" aria-label="Xoá góp ý">×</button></li>`).join("")}</ul>` : `<p class="muted">Chưa có góp ý nào. Xem bản nháp, chạm vào đoạn muốn sửa.</p>`}
+    <details class="miss" id="subBox"><summary>Phụ đề (sửa chữ nghe sai)</summary><div id="subList"><p class="small muted">Mở bản nháp để xem phụ đề.</p></div></details>
+    <div class="row" style="margin-top:14px"><button class="btn rose" data-fix="1" ${notes.length ? "" : "disabled"}>Gửi góp ý cho AI sửa</button><button class="btn" data-final="1">Ưng rồi, xuất bản cuối</button></div>
+    ${e.status === "sua" || e.status === "chot" ? `<p class="small muted" style="margin-top:10px">Nhắn Claude trong chat: <code>${e.status === "sua" ? "Sửa bản nháp tập " + esc(String(n)) : "Xuất bản cuối tập " + esc(String(n))}</code></p>` : ""}
+  </section>`;
+  let TL = null, z = Number(LS.get("tlz", 6));
+  const addNote = async o => { const all = (e.notes || []).slice(); all.push(Object.assign({id:uid(), v, at:Date.now()}, o)); await saveEd(n, {notes: all}); toast("Đã ghi góp ý"); };
+  const vid = () => $("#dv");
+  const drawTL = () => {
+    if (!TL) return; const box = $("#tl"), W = Math.max(box.clientWidth - 8, TL.dur * z);
+    const blk = (a, b, cls, inner, attrs="") => `<div class="tb ${cls}" style="left:${a*z}px;width:${Math.max(6,(b-a)*z-2)}px" ${attrs}>${inner}</div>`;
+    const ticks = []; const step = z >= 12 ? 5 : z >= 6 ? 10 : z >= 3 ? 30 : 60; for (let t = 0; t <= TL.dur; t += step) ticks.push(`<span style="left:${t*z}px">${fmtT(t)}</span>`);
+    const texts = [], vos = []; TL.segments.forEach(s => { (s.text||[]).forEach(t => texts.push(blk(s.start, s.end, "tx", esc(t)))); if (s.vo) vos.push(blk(s.start, s.end, "vo", "Lồng tiếng")); });
+    box.innerHTML = `<div class="tlin" style="width:${W}px"><div class="ruler">${ticks.join("")}</div>
+      <div class="trk vids">${TL.segments.map((s, i) => blk(s.start, s.end, "vs", `${s.thumb ? `<img src="${s.thumb}" alt="">` : ""}<span>${esc(s.label || "")}</span>`, `data-si="${i}" role="button" tabindex="0" aria-label="Đoạn ${esc(s.label||"")} từ ${fmtT(s.start)}"`)).join("")}</div>
+      <div class="trk">${texts.join("")}</div><div class="trk">${vos.join("")}</div>
+      <div class="trk">${(TL.music || []).map(m => blk(m.start, m.end, "mu", "♪ " + esc(m.title || m.track))).join("")}</div>
+      <i class="ph" id="ph"></i></div>`;
+    box.querySelectorAll("[data-si]").forEach(b => { const go = () => selSeg(Number(b.dataset.si)); b.onclick = go; b.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); go(); } }; });
+    syncPH();
+  };
+  const syncPH = () => { const p = $("#ph"), v2 = vid(); if (p && v2) p.style.left = (v2.currentTime * z) + "px"; };
+  const selSeg = i => {
+    const s = TL.segments[i]; const v2 = vid(); if (v2){ v2.currentTime = s.start + 0.05; }
+    $("#tl").querySelectorAll(".vs").forEach((b, j) => b.classList.toggle("sel", j === i));
+    const box = $("#segAct");
+    box.innerHTML = `<div class="segact"><p><b>${esc(s.label || "Đoạn " + (i+1))}</b> <span class="muted small">${fmtT(s.start)}–${fmtT(s.end)}</span></p>
+      <div class="acts">${["bo","ngan","take","chu","nhac","y"].map(k => `<button type="button" class="btn small ghost" data-act="${k}">${NOTEK[k]}</button>`).join("")}</div>
+      <div id="actForm"></div></div>`;
+    box.querySelectorAll("[data-act]").forEach(b => b.onclick = () => {
+      const kk = b.dataset.act;
+      if (kk === "bo"){ addNote({kind:"bo", seg:s.id, segLabel:s.label, t:s.start, text:"Bỏ đoạn này"}); return; }
+      const ph = {ngan:"Ngắn lại còn bao lâu, giữ phần nào?", take:"Muốn dùng take nào, hoặc tả take đó", chu:"Chữ trên hình mới", nhac:"Nhạc vui hơn, nhẹ hơn, hay bỏ nhạc?", y:"Góp ý cho đoạn này"}[kk];
+      $("#actForm").innerHTML = `<label class="f" style="margin-top:10px">${NOTEK[kk]}<textarea id="actTa" placeholder="${ph}">${kk === "chu" ? esc((s.text||[]).join(" / ")) : ""}</textarea></label><div class="row" style="margin-top:8px"><button class="btn small" id="actOk">Ghi góp ý</button></div>`;
+      $("#actOk").onclick = () => addNote({kind:kk, seg:s.id, segLabel:s.label, t:s.start, text:$("#actTa").value.trim()});
+      $("#actTa").focus();
+    });
+    box.scrollIntoView({block:"nearest"});
+  };
+  const subList = () => {
+    const box = $("#subList"); if (!box || !TL) return;
+    box.innerHTML = `<p class="small muted">Phụ đề lấy từ lời Pum nói, máy nghe có thể sai. Sửa xong ô nào là tự ghi thành góp ý.</p><ol class="subs">${TL.subs.map((s2, i) => `<li><button type="button" class="tbtn" data-seek="${s2[0]}">${fmtT(s2[0])}</button><input type="text" value="${esc(s2[2])}" data-sub="${i}" aria-label="Phụ đề lúc ${fmtT(s2[0])}"></li>`).join("")}</ol>`;
+    box.querySelectorAll("[data-sub]").forEach(inp => { inp.dataset.keep = "0"; inp.onchange = () => { const s2 = TL.subs[Number(inp.dataset.sub)]; addNote({kind:"sub", t:s2[0], text:`“${s2[2]}” → “${inp.value.trim()}”`}); }; });
+    bindSeek(box);
+  };
+  const bindSeek = root => root.querySelectorAll("[data-seek]").forEach(b => b.onclick = () => { const v2 = vid(); if (v2){ v2.currentTime = Number(b.dataset.seek); v2.play().catch(()=>{}); v2.scrollIntoView({block:"center"}); } else toast("Mở bản nháp trước nha"); });
+  bindSeek(sb);
+  sb.querySelectorAll("[data-z]").forEach(b => b.onclick = () => { z = Math.max(1.5, Math.min(24, z * (b.dataset.z === "1" ? 1.6 : 1/1.6))); LS.set("tlz", z); drawTL(); });
+  sb.querySelectorAll("[data-delnote]").forEach(b => b.onclick = async () => { await saveEd(n, {notes:(e.notes||[]).filter(x => x.id !== b.dataset.delnote)}); });
+  sb.querySelector("[data-noteat]").onclick = () => { const v2 = vid(); const t = v2 ? v2.currentTime : 0; const s = TL && TL.segments.find(x => t >= x.start && t < x.end);
+    $("#segAct").innerHTML = `<div class="segact"><label class="f">Góp ý tại ${fmtT(t)}<textarea id="atTa" placeholder="Ví dụ: chỗ này nhạc to quá, chen thêm cảnh tô bánh canh"></textarea></label><div class="row" style="margin-top:8px"><button class="btn small" id="atOk">Ghi góp ý</button></div></div>`;
+    $("#atOk").onclick = () => addNote({kind:"y", t, seg:s ? s.id : "", segLabel:s ? s.label : "", text:$("#atTa").value.trim()}); $("#atTa").focus(); };
+  sb.querySelector("[data-fix]").onclick = async () => { await saveEd(n, {status:"sua", fixAt:Date.now()}); toast("Đã gửi. Nhắn Claude: Sửa bản nháp tập " + n); };
+  sb.querySelector("[data-final]").onclick = async () => { if (!confirm("Chốt bản nháp này để AI xuất bản cuối 1080p?")) return; await saveEd(n, {status:"chot", finalAsk:Date.now()}); toast("Đã chốt. Nhắn Claude: Xuất bản cuối tập " + n); };
+  const ob = $("#openDraft");
+  if (ob) ob.onclick = async () => {
+    ob.disabled = true; ob.textContent = "Đang tải bản nháp…";
+    try{ const r = await fetch(`drafts/${n}/v${v}.mp4.enc`); if (!r.ok) throw 0; const buf = await window.PUMDECB(await r.arrayBuffer());
+      draftURL[k] = URL.createObjectURL(new Blob([buf], {type:"video/mp4"}));
+      $("#plWrap").innerHTML = `<video id="dv" controls playsinline src="${draftURL[k]}"></video>`; hookVid(); subList();
+    }catch(err){ ob.disabled = false; ob.textContent = "Mở lại bản nháp"; toast("Chưa tải được bản nháp, thử lại nha"); }
+  };
+  const hookVid = () => { const v2 = vid(); if (v2) v2.ontimeupdate = syncPH; };
+  hookVid();
+  encJSON(`drafts/${n}/v${v}.json.enc`).then(j => { TL = j; drawTL(); if (vid()) subList(); }).catch(() => { $("#tl").innerHTML = `<p class="notice small">Chưa mở được dòng thời gian.</p>`; });
+}
+
+function stepPost(sb, sc, st, e){
+  sb.innerHTML = `${e.finalV ? `<section class="pub ok"><h3 class="disp">Bản cuối</h3><p>AI đã gửi file 1080p trong chat Claude. Tải về rồi đăng.</p>${e.credits ? `<label class="f" style="margin-top:12px">Ghi công nhạc (dán vào cuối mô tả YouTube và caption TikTok)<textarea readonly style="min-height:120px">${esc(e.credits)}</textarea></label>` : ""}</section>` : ""}<div id="postBox"></div>`;
+  renderPost($("#postBox"), sc, st);
+}
+
 async function draftDesc(btn, sc, st){
   const notes = []; sc.sections.forEach(sec => (sec.beats||[]).forEach(b => { const y = S.beats[b.key]; if (y && y.note) notes.push(`- ${sec.kind==="day"?"Ngày "+sec.d+" · ":""}${b.title}: ${y.note}`); }));
   btn.disabled = true; btn.textContent = "Claude đang viết…";
