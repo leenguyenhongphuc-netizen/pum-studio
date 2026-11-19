@@ -239,7 +239,7 @@ class Beauty:
         P = self.P; h, w = img.shape[:2]
         need_face = any(P["face"].values()) or any(P["skin"].values())
         lm = self._landmarks(img) if need_face else None
-        need_body = self.pose is not None
+        need_body = self.pose is not None and lm is not None  # chỉ chỉnh dáng khi thấy mặt Pum trong khung
         if (lm is not None and any(P["face"].values())) or need_body:
             sc = 4; gx, gy = np.meshgrid(np.arange(0, w, sc, np.float32), np.arange(0, h, sc, np.float32))
             ux, uy = np.zeros_like(gx), np.zeros_like(gy)
@@ -250,8 +250,13 @@ class Beauty:
             if np.abs(ux).max() > 0.05 or np.abs(uy).max() > 0.05:
                 mx = cv2.resize(gx + ux, (w, h), interpolation=cv2.INTER_LINEAR); my = cv2.resize(gy + uy, (w, h), interpolation=cv2.INTER_LINEAR)
                 img = cv2.remap(img, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
-        if lm is not None and any(P["skin"].values()):
-            img = img.copy(); self._skin(img, lm, P["skin"])
+        if lm is not None and any(v for k, v in P["skin"].items() if k != "lip_lab"):
+            S = dict(P["skin"])
+            fw = np.ptp(lm[:, 0]); c = lm.mean(0).astype(int)
+            patch = img[max(0, c[1] - int(fw * .2)):c[1] + int(fw * .2), max(0, c[0] - int(fw * .2)):c[0] + int(fw * .2)]
+            if patch.size and patch.mean() < 95:  # cảnh tối: da dễ đỏ, giảm hồng
+                S["rosy"] = S.get("rosy", 0) * 0.45; S["blush"] = S.get("blush", 0) * 0.5; S["lips"] = S.get("lips", 0) * 0.7
+            img = img.copy(); self._skin(img, lm, S)
         return self._color(img, P["color"])
 
 

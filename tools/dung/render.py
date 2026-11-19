@@ -10,6 +10,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 HERE = Path(__file__).resolve().parent; REPO = HERE.parent.parent
+sys.path.insert(0, str(HERE))
 WORK = Path(os.environ.get("PUM_WORK", "/home/claude/pumdung"))
 CACHE = Path(os.environ.get("PUM_CACHE", "/home/claude/cache"))
 FPS = 30; SR = 48000
@@ -84,6 +85,26 @@ def sfx_file(name):
         y = np.sin(2 * np.pi * np.cumsum(f) / sr) * env(n, 0.004, 0.08) * .8
     elif name == "tick":
         n = int(0.05 * sr); y = rng.standard_normal(n) * env(n, 0.0005, 0.006) * .6
+    elif name == "sparkle":  # chuông lấp lánh đi lên
+        n = int(0.9 * sr); t = np.arange(n) / sr; y = np.zeros(n)
+        for k, f in enumerate([1568, 1976, 2349, 3136]):
+            st = int(k * 0.07 * sr); tt = t[: n - st]
+            y[st:] += np.sin(2 * np.pi * f * tt) * np.exp(-tt / 0.22) * (0.8 - k * .1)
+        y *= 0.6
+    elif name == "boing":  # lò xo
+        n = int(0.5 * sr); t = np.arange(n) / sr; f = 180 + 140 * np.sin(2 * np.pi * 9 * t) * np.exp(-t * 3) + 120 * t
+        y = np.sin(2 * np.pi * np.cumsum(f) / sr) * env(n, 0.003, 0.2)
+    elif name == "sad":  # hai nốt đi xuống
+        n = int(0.7 * sr); t = np.arange(n) / sr; f = np.where(t < 0.3, 440, 330) * (1 - 0.05 * t)
+        y = np.sin(2 * np.pi * np.cumsum(f) / sr) * np.where(t < 0.3, env(n, 0.01, 0.25), np.roll(env(n, 0.01, 0.3), int(0.3 * sr))) * .7
+    elif name == "swoosh":  # vụt nhanh cho băng chữ
+        n = int(0.3 * sr); x = rng.standard_normal(n); t = np.arange(n) / sr; k = np.sin(np.pi * t / t[-1]) ** 3
+        y = np.zeros(n); a = 0.0
+        for i in range(n):
+            c = 0.05 + 0.45 * k[i]; a = a + c * (x[i] - a); y[i] = a
+        y = y * k * 2
+    elif name == "click":  # màn trập máy ảnh
+        n = int(0.16 * sr); y = rng.standard_normal(n) * (env(n, 0.0005, 0.01) + np.roll(env(n, 0.0005, 0.012), int(0.06 * sr)) * .8) * .7
     else: raise SystemExit("sfx lạ: " + name)
     y = (y / (np.abs(y).max() + 1e-9) * 0.7 * 32767).astype(np.int16)
     import wave
@@ -138,16 +159,16 @@ def card(text, style, W, H, fx):
         return b.rotate(angle, resample=Image.BICUBIC, expand=True)
     st = style
     if st == "tape":
-        f = F(fx["inter"], int(66 * S)); lines = wrap(d0, text, f, W * 0.62)
-        b = block(lines, f, (int(34 * S), int(16 * S)), COL["tape"], COL["cocoa"], int(6 * S), 2)
+        f = F(fx["inter"], int(84 * S)); lines = wrap(d0, text, f, W * 0.66)
+        b = block(lines, f, (int(42 * S), int(20 * S)), COL["tape"], COL["cocoa"], int(8 * S), 2)
         pos = (int(W * 0.06), int(H * 0.10))
     elif st == "postcard":
-        f = F(fx["play"], int(54 * S), 700); lines = wrap(d0, text, f, W * 0.5)
+        f = F(fx["play"], int(64 * S), 700); lines = wrap(d0, text, f, W * 0.55)
         b = block(lines, f, (int(36 * S), int(22 * S)), COL["paper"], COL["cocoa"], int(10 * S), -3)
         pos = (int(W * 0.06), int(H * 0.70) - (len(lines) - 1) * int(60 * S))
     elif st == "label":
-        f = F(fx["nunito"], int(40 * S), 900); lines = [text.upper()]
-        b = block(lines, f, (int(28 * S), int(10 * S)), COL["tape"], COL["cocoa"], int(40 * S), 0)
+        f = F(fx["nunito"], int(60 * S), 900); lines = [text.upper()]
+        b = block(lines, f, (int(34 * S), int(13 * S)), COL["tape"], COL["cocoa"], int(40 * S), 0)
         pos = (int(W * 0.06), int(H * 0.08))
     elif st == "price":
         f = F(fx["nunito"], int(46 * S), 900); lines = [text]
@@ -158,7 +179,7 @@ def card(text, style, W, H, fx):
         b = block(lines, f, (0, 0), None, COL["white"], 0, 0, stroke=int(8 * S), sc=COL["cocoa"], lh=1.05)
         pos = ((W - b.width) // 2, (H - b.height) // 2)
     elif st == "question":
-        f = F(fx["nunito"], int(52 * S), 900); lines = wrap(d0, text, f, W * 0.55)
+        f = F(fx["nunito"], int(60 * S), 900); lines = wrap(d0, text, f, W * 0.55)
         b = block(lines, f, (int(44 * S), int(30 * S)), COL["white"], COL["berry"], int(28 * S), 0)
         pos = ((W - b.width) // 2 - int(90 * S), int(H * 0.62) - b.height // 2)
         mini = REPO / "brand" / "hello.png"
@@ -183,7 +204,7 @@ WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Pum,Be Vietnam Pro ExtraBold,{int(54*S)},&H00FFFFFF,&H00FFFFFF,&H00302639,&H64302639,0,0,0,0,100,100,0,0,1,{4.5*S:.1f},{1.5*S:.1f},2,{int(160*S)},{int(160*S)},{int(64*S)},1
+Style: Pum,Be Vietnam Pro ExtraBold,{int(62*S)},&H00FFFFFF,&H00FFFFFF,&H00302639,&H64302639,0,0,0,0,100,100,0,0,1,{4.5*S:.1f},{1.5*S:.1f},2,{int(160*S)},{int(160*S)},{int(64*S)},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -202,6 +223,37 @@ def chunk_words(words, maxc=42, maxdur=3.2):
     return out
 
 # ---------- dựng một đoạn ----------
+_FD = None
+def face_box(src, t, W, H):
+    """mặt lớn nhất ở giây t (để đặt doodle cạnh mặt, không đè mặt)"""
+    global _FD
+    try:
+        import cv2
+        if _FD is None:
+            _FD = cv2.FaceDetectorYN.create("/home/claude/models/face_detection_yunet_2023mar.onnx", "", (320, 320), 0.6, 0.3, 50)
+        raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t + 0.3:.2f}", "-i", src, "-frames:v", "1", "-vf", f"scale={W}:{H}", "-f", "image2pipe", "-vcodec", "png", "-"], capture_output=True).stdout
+        img = cv2.imdecode(np.frombuffer(raw, np.uint8), 1)
+        if img is None: return None
+        _FD.setInputSize((img.shape[1], img.shape[0])); _, f = _FD.detect(img)
+        if f is None: return None
+        r = max(f, key=lambda r: r[2] * r[3]); return tuple(float(v) for v in r[:4]) if r[2] > W * 0.05 else None
+    except Exception:
+        return None
+
+def doodle_pos(face, W, H, size, j, has_text):
+    if face:
+        x, y, w, h = face
+        right = x + w * 1.15; left = x - w * 0.15 - size
+        if right + size < W * 0.95: px = right
+        elif left > W * 0.04: px = left
+        else: px = W * 0.78
+        py = max(H * 0.08, y - size * 0.35)
+    else:
+        px, py = W * 0.76, H * 0.16
+    if has_text and px < W * 0.5 and py < H * 0.32: py = H * 0.36  # chừa chỗ băng chữ góc trái trên
+    px += (j % 2) * size * 0.25
+    return int(px), int(min(py, H * 0.6))
+
 def seg_render(i, sg, clips, W, H, fx, tmp):
     src = sg.get("path") or clips[sg["clip"]]["path"]; info = clips.get(sg.get("clip"), {})
     a, b = float(sg["in"]), float(sg["out"]); sp = float(sg.get("speed", 1)); dur = (b - a) / sp
@@ -233,7 +285,22 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         inputs += ["-loop", "1", "-t", f"{dur:.3f}", "-i", str(png)]
         s0, s1 = float(t.get("start", 0)), float(t.get("end", dur))
         fade = f"fade=t=in:st={s0:.2f}:d=0.18:alpha=1,fade=t=out:st={max(s0,s1-0.18):.2f}:d=0.18:alpha=1"
-        fc.append(f"[{k}:v]format=rgba,{fade}[o{k}]"); fc.append(f"[{last}][o{k}]overlay=0:0:enable='between(t,{s0:.2f},{s1:.2f})'[v{k}]"); last = f"v{k}"; k += 1
+        bounce = f"-34*exp(-(t-{s0:.2f})*7)*cos((t-{s0:.2f})*21)"  # bật nảy khi hiện
+        fc.append(f"[{k}:v]format=rgba,{fade}[o{k}]"); fc.append(f"[{last}][o{k}]overlay=x=0:y='{bounce}':enable='between(t,{s0:.2f},{s1:.2f})'[v{k}]"); last = f"v{k}"; k += 1
+    # doodle vẽ tay: 3 khung rung luân phiên, bật nảy, đặt cạnh mặt Pum (né chữ góc trái trên)
+    if sg.get("doodles"):
+        from doodle import doodle as _dd
+        face = face_box(src, a, W, H)
+        for j, dd in enumerate(sg["doodles"]):
+            s0, s1 = float(dd["start"]), float(dd["end"]); size = int(H * dd.get("size", 0.21))
+            x, y = doodle_pos(face, W, H, size, j, bool(sg.get("text")))
+            for fr in range(3):
+                png = tmp / f"d{i}_{j}_{fr}.png"; _dd(dd["kind"], size, fr).save(png)
+                inputs += ["-loop", "1", "-t", f"{dur:.3f}", "-i", str(png)]
+                en = f"between(t,{s0:.2f},{s1:.2f})*eq(mod(floor((t-{s0:.2f})/0.13),3),{fr})"
+                yb = f"{y}-40*exp(-(t-{s0:.2f})*8)*cos((t-{s0:.2f})*24)"
+                fc.append(f"[{k}:v]format=rgba,fade=t=in:st={s0:.2f}:d=0.1:alpha=1,fade=t=out:st={max(s0, s1-0.15):.2f}:d=0.15:alpha=1[dd{k}]")
+                fc.append(f"[{last}][dd{k}]overlay=x={x}:y='{yb}':enable='{en}'[v{k}]"); last = f"v{k}"; k += 1
     # âm thanh
     mode = sg.get("audio", "src"); vol = float(sg.get("vol", 1.0))
     has_a = info.get("audio", True)
@@ -243,19 +310,22 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         g = {"src": 1.0, "low": 0.28, "amb": 0.45}.get(mode, 1.0) * vol
         at = f",atempo={sp}" if sp != 1 and 0.5 <= sp <= 2 else ""
         fd = float(sg.get("fade", 0.06))
-        fc.append(f"[0:a]aresample={SR},aformat=channel_layouts=stereo{at},volume={g:.3f},afade=t=in:d={fd:.3f},afade=t=out:st={max(0,dur-fd-0.02):.3f}:d={fd+0.02:.3f}[a0]")
+        clean = (",highpass=f=85,arnndn=m=/home/claude/models/sh.rnnn:mix=0.88,afftdn=nr=8:nf=-38:tn=1,equalizer=f=3200:t=q:w=1.2:g=2,acompressor=threshold=-22dB:ratio=2.5:attack=6:release=140:makeup=2"
+                 if mode == "src" and Path("/home/claude/models/sh.rnnn").exists() and sg.get("voice") == "noi" else "")
+        fc.append(f"[0:a]aresample={SR},aformat=channel_layouts=stereo{at}{clean},volume={g:.3f},afade=t=in:d={fd:.3f},afade=t=out:st={max(0,dur-fd-0.02):.3f}:d={fd+0.02:.3f}[a0]")
     alast = "a0"
     vo = sg.get("vo")
     if vo:
         vsrc = vo.get("path") or clips[vo["clip"]]["path"]
         inputs += ["-ss", f"{float(vo['in']):.3f}", "-to", f"{float(vo['out']):.3f}", "-i", vsrc]
         ms = int(float(vo.get("at", 0.2)) * 1000)
-        fc.append(f"[{k}:a]aresample={SR},aformat=channel_layouts=stereo,highpass=f=80,acompressor=threshold=-20dB:ratio=3:attack=5:release=120,volume={float(vo.get('vol',1.15)):.2f},adelay={ms}|{ms}[vo]")
+        dn = ",arnndn=m=/home/claude/models/sh.rnnn:mix=0.88,afftdn=nr=8:nf=-38:tn=1,equalizer=f=3200:t=q:w=1.2:g=2" if vo.get("speech") and Path("/home/claude/models/sh.rnnn").exists() else ""
+        fc.append(f"[{k}:a]aresample={SR},aformat=channel_layouts=stereo,highpass=f=85{dn},acompressor=threshold=-20dB:ratio=3:attack=5:release=120,volume={float(vo.get('vol',1.15)):.2f},adelay={ms}|{ms}[vo]")
         fc.append(f"[{alast}][vo]amix=inputs=2:normalize=0:duration=first[am]"); alast = "am"; k += 1
     fc.append(f"[{alast}]apad,atrim=0:{dur:.3f}[aout]")
     out = tmp / f"seg{i:03d}.mp4"
     sh(["ffmpeg", "-y", "-v", "error", *inputs, "-filter_complex", ";".join(fc), "-map", f"[{last}]", "-map", "[aout]",
-        "-t", f"{dur:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p", "-r", str(FPS),
+        "-t", f"{dur:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "15", "-pix_fmt", "yuv420p", "-r", str(FPS),
         "-c:a", "aac", "-b:a", "192k", "-ar", str(SR), "-ac", "2", str(out)])
     return out, dur
 
@@ -326,7 +396,7 @@ def main():
     mix = ["[dia]"]
     if mus:
         a_fc.append(f"{''.join(mus)}amix=inputs={len(mus)}:normalize=0:duration=longest,apad,atrim=0:{total+4:.2f}[mus]")
-        a_fc.append("[mus][key]sidechaincompress=threshold=0.02:ratio=8:attack=25:release=450:makeup=1[duck]"); mix.append("[duck]")
+        a_fc.append("[mus][key]sidechaincompress=threshold=0.05:ratio=3.5:attack=30:release=500:makeup=1[duck]"); mix.append("[duck]")
     else: a_fc.append("[key]anullsink")
     mix += sfx
     a_fc.append(f"{''.join(mix)}amix=inputs={len(mix)}:normalize=0:duration=first,loudnorm=I=-14:TP=-2:LRA=11,aresample={SR}[aout]")
@@ -336,8 +406,8 @@ def main():
     final = out / "final.mp4"; proxy = out / "proxy.mp4"
     if not proxy_only:
         sh(["ffmpeg", "-y", "-v", "error", *vin2, "-filter_complex", ";".join(fc), "-map", "[vout]", "-map", amap,
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-r", str(FPS), "-movflags", "+faststart",
-            "-c:a", "aac", "-b:a", "192k", "-t", f"{total:.2f}", str(final)])
+            "-c:v", "libx264", "-preset", os.environ.get("PUM_PRESET", "medium"), "-crf", os.environ.get("PUM_CRF", "16"), "-pix_fmt", "yuv420p", "-r", str(FPS), "-movflags", "+faststart",
+            "-c:a", "aac", "-b:a", "256k", "-t", f"{total:.2f}", str(final)])
         sh(["ffmpeg", "-y", "-v", "error", "-i", str(final), "-vf", "scale=854:-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "30",
             "-c:a", "aac", "-b:a", "64k", "-ac", "1", "-movflags", "+faststart", str(proxy)])
     else:
