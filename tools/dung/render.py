@@ -301,7 +301,8 @@ def main():
     assp = str(tmp / "subs.ass").replace(":", "\\:")
     fc.append(f"[{last}]ass='{assp}'[vout]")
     # âm: tiếng gốc + nhạc (tự hạ khi có lời) + hiệu ứng
-    ain = []; a_fc = []; ai = k
+    # tiếng trộn ở một lượt riêng (mix.wav) rồi mới ghép với hình: trộn chung một lượt với hình làm loudnorm bị cắt đuôi ~3,7 s câm
+    ain = []; a_fc = []; ai = 1
     mus = []; credits = []
     for c in E.get("music", []):
         p, info = music_file(c["track"]); credits.append(info["title"])
@@ -315,24 +316,26 @@ def main():
         p = sfx_file(s["name"]); ain += ["-i", str(p)]
         ms = int(float(s["at"]) * 1000)
         a_fc.append(f"[{ai}:a]aresample={SR},aformat=channel_layouts=stereo,volume={float(s.get('vol',0.5)):.2f},adelay={ms}|{ms}[f{ai}]"); sfx.append(f"[f{ai}]"); ai += 1
-    a_fc.append(f"[0:a]apad,atrim=0:{total:.2f},asplit=2[dia][key]")
+    a_fc.append(f"[0:a]apad,atrim=0:{total+4:.2f},asplit=2[dia][key]")  # dư 4 s: loudnorm giữ 3 s nhìn trước, không để đuôi bị câm
     mix = ["[dia]"]
     if mus:
-        a_fc.append(f"{''.join(mus)}amix=inputs={len(mus)}:normalize=0:duration=longest,apad,atrim=0:{total:.2f}[mus]")
+        a_fc.append(f"{''.join(mus)}amix=inputs={len(mus)}:normalize=0:duration=longest,apad,atrim=0:{total+4:.2f}[mus]")
         a_fc.append("[mus][key]sidechaincompress=threshold=0.02:ratio=8:attack=25:release=450:makeup=1[duck]"); mix.append("[duck]")
     else: a_fc.append("[key]anullsink")
     mix += sfx
-    a_fc.append(f"{''.join(mix)}amix=inputs={len(mix)}:normalize=0:duration=first,loudnorm=I=-14:TP=-1.5:LRA=11,aresample={SR}[aout]")
-    full = fc + a_fc
+    a_fc.append(f"{''.join(mix)}amix=inputs={len(mix)}:normalize=0:duration=first,loudnorm=I=-14:TP=-2:LRA=11,aresample={SR}[aout]")
+    mixw = tmp / "mix.wav"
+    sh(["ffmpeg", "-y", "-v", "error", "-i", str(tmp / "base.mp4"), *ain, "-filter_complex", ";".join(a_fc), "-map", "[aout]", "-c:a", "pcm_s16le", str(mixw)])
+    vin2 = [*vin, "-i", str(mixw)]; amap = f"{k}:a"
     final = out / "final.mp4"; proxy = out / "proxy.mp4"
     if not proxy_only:
-        sh(["ffmpeg", "-y", "-v", "error", *vin, *ain, "-filter_complex", ";".join(full), "-map", "[vout]", "-map", "[aout]",
+        sh(["ffmpeg", "-y", "-v", "error", *vin2, "-filter_complex", ";".join(fc), "-map", "[vout]", "-map", amap,
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-r", str(FPS), "-movflags", "+faststart",
             "-c:a", "aac", "-b:a", "192k", "-t", f"{total:.2f}", str(final)])
         sh(["ffmpeg", "-y", "-v", "error", "-i", str(final), "-vf", "scale=854:-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "30",
             "-c:a", "aac", "-b:a", "64k", "-ac", "1", "-movflags", "+faststart", str(proxy)])
     else:
-        sh(["ffmpeg", "-y", "-v", "error", *vin, *ain, "-filter_complex", ";".join(full).replace("[vout]", "[vbig]") + ";[vbig]scale=854:-2[vout]", "-map", "[vout]", "-map", "[aout]",
+        sh(["ffmpeg", "-y", "-v", "error", *vin2, "-filter_complex", ";".join(fc).replace("[vout]", "[vbig]") + ";[vbig]scale=854:-2[vout]", "-map", "[vout]", "-map", amap,
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "30", "-r", str(FPS), "-movflags", "+faststart", "-c:a", "aac", "-b:a", "64k", "-ac", "1", "-t", f"{total:.2f}", str(proxy)])
     # ảnh nhỏ mỗi đoạn để app vẽ dải thời gian
     for x in tl:
