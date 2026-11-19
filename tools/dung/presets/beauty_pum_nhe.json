@@ -1,28 +1,29 @@
 {
  "_note": "Mức nhẹ (60% mức vừa)",
  "color": {
-  "exposure": 0.072,
-  "contrast": 0.964,
-  "saturation": 0.958,
-  "warmth": 0.072,
-  "tint": 0.108,
-  "glow": 0.096,
-  "lift": 0.012
+  "exposure": 0.03,
+  "contrast": 0.976,
+  "saturation": 1.0,
+  "warmth": 0.036,
+  "tint": 0.18,
+  "glow": 0.048,
+  "lift": 0.009
  },
  "skin": {
-  "smooth": 0.3,
-  "brighten": 0.09,
-  "blush": 0.12
+  "smooth": 0.27,
+  "brighten": 0.036,
+  "blush": 0.15,
+  "rosy": 0.24
  },
  "face": {
-  "eyes": 0.06,
-  "jaw": 0.021,
-  "chin": 0.072,
-  "cheek": 0.012
+  "eyes": 0.054,
+  "jaw": 0.009,
+  "chin": 0.024,
+  "cheek": 0.0
  },
  "body": {
-  "waist": 0.021,
-  "arms": 0.018
+  "waist": 0.03,
+  "arms": 0.024
  },
  "smooth_landmarks": 0.6
 }

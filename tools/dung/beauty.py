@@ -25,7 +25,7 @@ HOLES = [[33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161
 
 DEFAULT = {
     "color": {"exposure": 0.0, "contrast": 1.0, "saturation": 1.0, "warmth": 0.0, "tint": 0.0, "glow": 0.0, "lift": 0.0},
-    "skin": {"smooth": 0.0, "brighten": 0.0, "blush": 0.0},
+    "skin": {"smooth": 0.0, "brighten": 0.0, "blush": 0.0, "rosy": 0.0},
     "face": {"eyes": 0.0, "jaw": 0.0, "chin": 0.0, "cheek": 0.0},
     "body": {"waist": 0.0, "arms": 0.0},
     "smooth_landmarks": 0.6,
@@ -136,12 +136,17 @@ class Beauty:
         if not r.pose_landmarks: return ux, uy
         ps = [np.array([[l.x * w, l.y * h, l.visibility] for l in p]) for p in r.pose_landmarks]
         p = max(ps, key=lambda q: abs(q[11, 0] - q[12, 0]))  # người gần máy nhất (vai rộng nhất)
-        sw = abs(p[11, 0] - p[12, 0]);
-        if sw < 0.08 * w: return ux, uy
-        cx = (p[11, 0] + p[12, 0] + p[23, 0] + p[24, 0]) / 4 if min(p[23, 2], p[24, 2]) > 0.5 else (p[11, 0] + p[12, 0]) / 2
-        if B["waist"] and min(p[23, 2], p[24, 2]) > 0.5:
-            for s, hp in ((11, 23), (12, 24)):
-                wp = p[s, :2] * 0.4 + p[hp, :2] * 0.6  # eo: 60% từ vai xuống hông
+        sw = abs(p[11, 0] - p[12, 0])
+        if sw < 0.05 * w or min(p[11, 2], p[12, 2]) < 0.5: return ux, uy
+        hips = min(p[23, 2], p[24, 2]) > 0.5
+        cx = (p[11, 0] + p[12, 0] + p[23, 0] + p[24, 0]) / 4 if hips else (p[11, 0] + p[12, 0]) / 2
+        if B["waist"]:
+            for s_, hp in ((11, 23), (12, 24)):
+                if hips:
+                    wp = p[s_, :2] * 0.4 + p[hp, :2] * 0.6  # eo: 60% từ vai xuống hông
+                else:  # selfie nửa người: ước lượng eo dưới vai ~1 bề ngang vai, hơi thu vào trong
+                    wp = np.array([p[s_, 0] + (cx - p[s_, 0]) * 0.12, p[s_, 1] + sw * 1.0])
+                    if wp[1] > h * 0.98: continue
                 v = np.array([np.sign(cx - wp[0]), 0.0])
                 a, b = self._shift(mx, my, wp, v * B["waist"] * sw, sw * 0.45); ux += a; uy += b
         if B["arms"]:
@@ -175,6 +180,10 @@ class Beauty:
         if S["brighten"]:
             lab = cv2.cvtColor(np.clip(out, 0, 255).astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)
             lab[..., 0] = lab[..., 0] + m[..., 0] * S["brighten"] * (255 - lab[..., 0]) * 0.35
+            out = cv2.cvtColor(np.clip(lab, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR).astype(np.float32)
+        if S.get("rosy"):  # da hồng nhẹ: đẩy kênh a (đỏ-hồng) của da lên, không làm trắng
+            lab = cv2.cvtColor(np.clip(out, 0, 255).astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)
+            lab[..., 1] += m[..., 0] * S["rosy"] * 10; lab[..., 2] -= m[..., 0] * S["rosy"] * 3
             out = cv2.cvtColor(np.clip(lab, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR).astype(np.float32)
         if S["blush"]:
             bm = np.zeros(roi.shape[:2], np.float32)

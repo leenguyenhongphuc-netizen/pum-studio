@@ -1,28 +1,29 @@
 {
- "_note": "Mức mạnh (140% mức vừa), sát video mẫu hơn; kiểm kỹ nền cong",
+ "_note": "Mức mạnh (140% mức vừa); vẫn giữ mặt tròn nhẹ",
  "color": {
-  "exposure": 0.168,
-  "contrast": 0.916,
-  "saturation": 0.902,
-  "warmth": 0.168,
-  "tint": 0.252,
-  "glow": 0.224,
-  "lift": 0.028
+  "exposure": 0.07,
+  "contrast": 0.944,
+  "saturation": 1.0,
+  "warmth": 0.084,
+  "tint": 0.42,
+  "glow": 0.112,
+  "lift": 0.021
  },
  "skin": {
-  "smooth": 0.7,
-  "brighten": 0.21,
-  "blush": 0.28
+  "smooth": 0.63,
+  "brighten": 0.084,
+  "blush": 0.35,
+  "rosy": 0.56
  },
  "face": {
-  "eyes": 0.14,
-  "jaw": 0.049,
-  "chin": 0.168,
-  "cheek": 0.028
+  "eyes": 0.126,
+  "jaw": 0.021,
+  "chin": 0.056,
+  "cheek": 0.0
  },
  "body": {
-  "waist": 0.049,
-  "arms": 0.042
+  "waist": 0.07,
+  "arms": 0.056
  },
  "smooth_landmarks": 0.6
 }
