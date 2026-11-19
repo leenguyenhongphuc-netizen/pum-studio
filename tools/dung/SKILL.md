@@ -29,13 +29,40 @@ Dùng khi nhắn: "Dựng tập … từ Pum Studio", "Dựng tiếp tập …",
 | Lấy kịch bản, clip đã gắn, góp ý | `pumdung.py fetch <ep>` |
 | Lấy video trên Drive | `pumdung.py drive <ep>` in danh sách mã Drive cần tải; với mỗi mã gọi công cụ Google Drive `download_file_content` (file về một đường dẫn tạm), rồi `pumdung.py place <ep> <đường dẫn tạm> <mã Drive>`. Xong chạy `match <ep> /home/claude/pumdung/<ep>/src` |
 | Khớp file Pum gửi với clip đã gắn | `pumdung.py match <ep> /mnt/user-data/uploads` (khớp theo dung lượng, thời lượng ±0,35 s, tên; báo clip thiếu và file chưa gắn) |
-| Quét clip | `pumdung.py scan <ep>` (lời nói có mốc từng chữ, độ nét, độ sáng, độ lớn âm) rồi `pumdung.py sheet <ep>` và **tự xem ảnh** từng clip |
+| Quét clip | `pumdung.py scan <ep>` (lời nói có mốc từng chữ, độ nét, độ sáng, độ lớn âm) rồi `pumdung.py sheet <ep>` và **tự xem ảnh** từng clip; sau đó Agent chọn take nghe hết và viết `takes.json` (mục Hai agent) |
 | Đưa hướng dựng lên app | `pumdung.py board <ep> board.json "lời nhắn ngắn"` |
 | Dựng | `render.py <ep> edl.json` → `work/<ep>/v<N>/final.mp4, proxy.mp4, timeline.json, credits.txt` |
 | Kiểm kỹ thuật | `qa.py <ep> <N>` + xem mọi ảnh `qa/sheet_*.jpg` |
 | Đưa bản nháp lên app | `pumdung.py draft <ep> <N> "lời nhắn"` (mã hoá, đẩy lên web, ghi trạng thái) |
 | Dự án Concat chỉnh tay | `concat_build.py <ep> edl.json` → `v<N>/concat_project.zip` + `concat_final.mp4` (khoảng 3 giây máy cho 1 giây video) |
 | Báo bản cuối | gửi `final.mp4` bằng SendUserFile, rồi `pumdung.py final <ep> <N>` |
+
+## Hai agent: Agent chọn take và Agent dựng
+Mỗi đoạn kịch bản thường quay lại nhiều lần (sai thoại, ngại, lúng túng, cười giữa câu). Chọn take là việc riêng, làm trước khi dựng, theo tư duy một editor chuyên vlog lifestyle: người xem phải thấy Pum tự nhiên, rõ mặt, nói trôi.
+
+### Agent chọn take (nghe toàn bộ, không bỏ clip nào)
+- Nghe **hết mọi giây** của mọi video gốc (bản ghi lời có mốc từng chữ bằng faster-whisper large-v3-turbo, đưa âm vào dạng mảng numpy) và xem ảnh khung hình mỗi 2–3 giây của từng clip. Không chọn theo tên file hay theo clip đầu tiên khớp kịch bản.
+- Gom các take cùng một câu/một ý (so lời nói, nơi quay, quần áo, giờ trong tên file), rồi chấm từng take trên 10:
+
+| Tiêu chí | Điểm | Đạt khi |
+|---|---|---|
+| Thoại | 3 | trọn câu, đúng ý kịch bản hoặc tự nhiên hơn, không vấp, không nói lại, không "ờ ờ" kéo dài |
+| Mặt Pum | 2 | thấy rõ mặt Pum, mắt nhìn ống kính hoặc đúng hướng, không bị cắt nửa mặt, không chĩa máy lên trời/xuống đất |
+| Hình | 2 | nét, đủ sáng, không rung mạnh, màu thật |
+| Năng lượng | 2 | tươi, tự tin, cảm xúc thật (cười, "ủa", nếm thử) |
+| Âm | 1 | lời rõ, gió và ồn nền không lấn lời |
+
+- **Chỉ dùng take từ 9/10.** Đoạn nào không có take 9: ghép phần tốt của hai take (cắt ở chỗ ngắt câu, che mối nối bằng cảnh chèn) hoặc dùng lời tại chỗ trên cảnh chèn; vẫn dưới 9 thì đổi thành lồng tiếng và đưa vào yêu cầu lồng tiếng cho Pum. Không dùng take hỏng vì "đủ ý".
+- Ghi kết quả vào `takes.json` (mỗi đoạn: các take đã nghe, điểm từng tiêu chí, take chọn, mốc in/out, lý do) và tóm tắt trong `board.json` (`use`). Pum xem được vì sao chọn.
+
+### Riêng tư: người đi cùng và biển số xe
+- Không dùng hình người đi cùng Pum (bạn, người nhà, người quay) và người lạ nhìn rõ mặt. Ưu tiên theo thứ tự: chọn take/khung khác → cắt bớt (in/out) → `zoom` cúp sát Pum → che mờ bằng `hide`. Người đứng bán hay hướng dẫn chỉ xuất hiện khi Pum đã xác nhận họ đồng ý (ghi vào `questions`).
+- Không để lộ biển số xe (ô tô, xe máy), số điện thoại, giấy tờ, màn hình điện thoại có thông tin riêng: cắt hoặc che `hide` suốt thời gian chúng hiện.
+- Cách che trong edl: `"hide":[{"box":[x,y,w,h],"start":0,"end":3.5}]`, `box` tính theo tỉ lệ 0–1 của khung ra 1920×1080, giây tính từ đầu đoạn. Vật di chuyển thì chia nhiều mốc nhỏ. Sau khi dựng phải xem lại ảnh qa để chắc đã che hết.
+
+### Agent dựng (editor vlog lifestyle)
+- Nhận `takes.json` và kịch bản, dựng theo các mục bên dưới: nhịp, chèn cảnh, chữ, nhạc, chuyển cảnh, che riêng tư. Mỗi đoạn tự hỏi như editor: đoạn này giữ người xem không, có thừa không, có cảnh đẹp hơn để chèn không, cảm xúc có rõ không.
+- Làm việc theo vòng: dựng → qa → tự xem ảnh và chấm → agent chấm độc lập → sửa → dựng lại, cho tới khi đạt cổng chất lượng. Mọi lựa chọn ghi lý do ngắn vào board để Pum duyệt.
 
 ## Hướng dựng (board.json, bước 3)
 Đọc hết: kịch bản theo thứ tự, ghi chú và sao "Ưng" của Pum, lý do quay ngoài kịch bản, lời nói thật trong `scan.json`, ảnh xem nhanh. Rồi viết:
@@ -136,6 +163,7 @@ Concat chạy không cửa sổ qua MCP (`concat --mcp headless`, gói trong `co
 
 ## Cổng chất lượng: chỉ giao khi đạt 9/10
 1. `qa.py` phải `pass` (1080p 30fps, -15..-13 LUFS, đỉnh ≤ -1 dBTP, không khung đen, không lặng > 2 s, không còn ___ hay [ ] trên hình).
+   Thêm: mọi đoạn Pum nói dùng take đạt từ 9/10 trong `takes.json`; không còn mặt người đi cùng hay biển số xe nào lộ trên ảnh qa.
 2. Tự xem mọi ảnh `qa/sheet_*.jpg`: chữ không che mặt, đúng dấu tiếng Việt, đúng vùng an toàn, màu thật.
 3. Chấm theo pum-video-dna mục 9 (5 tiêu chí × 2 điểm) và đủ 6 cổng. Thêm cho tập dài: mở tập giữ người xem trong 30 giây đầu; mỗi chương trả lời đúng điều nó hứa; không đoạn nào lê thê quá 20 s không đổi hình. Nhạc: đủ 4–6 bài cho tập 10–12 phút, không bài nào chạy liền quá 120 s, không trùng bài với 2 tập trước (trừ bài chữ ký), có ít nhất một khoảng lặng ở khoảnh khắc phản ứng, mọi bài có giấy phép và dòng ghi công trong `credits.txt`.
 4. Nhờ một agent khác (chưa thấy quá trình dựng) xem ảnh qa, timeline.json và kịch bản rồi chấm độc lập. Lấy điểm thấp hơn.

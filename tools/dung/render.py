@@ -222,6 +222,12 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
     if sg.get("bright"): vf.insert(-1, f"eq=brightness={float(sg['bright']):.2f}")
     inputs = ["-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-i", src]
     fc = [f"[0:v]{','.join(vf)}[v0]"]; last = "v0"; k = 1
+    # che người đi cùng, biển số xe: "hide":[{"box":[x,y,w,h] (tỉ lệ 0..1 của khung ra), "start":giây, "end":giây}]
+    for j, h in enumerate(sg.get("hide", [])):
+        x, y, w, hh = h["box"]; bx, by = int(x * W) // 2 * 2, int(y * H) // 2 * 2
+        bw, bh = max(16, int(w * W) // 2 * 2), max(16, int(hh * H) // 2 * 2)
+        s0, s1 = float(h.get("start", 0)), float(h.get("end", dur))
+        fc.append(f"[{last}]split[h{j}a][h{j}b];[h{j}b]crop={bw}:{bh}:{bx}:{by},boxblur=luma_radius=min(w\\,h)/5:luma_power=3[h{j}c];[h{j}a][h{j}c]overlay={bx}:{by}:enable='between(t,{s0:.2f},{s1:.2f})'[h{j}]"); last = f"h{j}"
     for j, t in enumerate(sg.get("text", [])):
         png = tmp / f"t{i}_{j}.png"; card(t["text"], t.get("style", "tape"), W, H, fx).save(png)
         inputs += ["-loop", "1", "-t", f"{dur:.3f}", "-i", str(png)]
