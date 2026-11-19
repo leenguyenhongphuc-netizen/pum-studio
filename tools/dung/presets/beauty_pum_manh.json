@@ -1,0 +1,28 @@
+{
+ "_note": "Mức mạnh (140% mức vừa), sát video mẫu hơn; kiểm kỹ nền cong",
+ "color": {
+  "exposure": 0.168,
+  "contrast": 0.916,
+  "saturation": 0.902,
+  "warmth": 0.168,
+  "tint": 0.252,
+  "glow": 0.224,
+  "lift": 0.028
+ },
+ "skin": {
+  "smooth": 0.7,
+  "brighten": 0.21,
+  "blush": 0.28
+ },
+ "face": {
+  "eyes": 0.14,
+  "jaw": 0.049,
+  "chin": 0.168,
+  "cheek": 0.028
+ },
+ "body": {
+  "waist": 0.049,
+  "arms": 0.042
+ },
+ "smooth_landmarks": 0.6
+}

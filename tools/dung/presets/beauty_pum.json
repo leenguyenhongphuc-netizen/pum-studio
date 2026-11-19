@@ -1,0 +1,6 @@
+{"_note": "Đo từ 2 video mẫu TikTok của Pum (19/11/2026): da sáng hơn ~+20 L, mắt to hơn ~9%, cằm ngắn hơn ~10%, hàm thon hơn ~2%, ánh hồng ấm, tương phản mềm.",
+ "color": {"exposure": 0.12, "contrast": 0.94, "saturation": 0.93, "warmth": 0.12, "tint": 0.18, "glow": 0.16, "lift": 0.02},
+ "skin": {"smooth": 0.5, "brighten": 0.15, "blush": 0.2},
+ "face": {"eyes": 0.10, "jaw": 0.035, "chin": 0.12, "cheek": 0.02},
+ "body": {"waist": 0.035, "arms": 0.03},
+ "smooth_landmarks": 0.6}

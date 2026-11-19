@@ -1,0 +1,28 @@
+{
+ "_note": "Mức nhẹ (60% mức vừa)",
+ "color": {
+  "exposure": 0.072,
+  "contrast": 0.964,
+  "saturation": 0.958,
+  "warmth": 0.072,
+  "tint": 0.108,
+  "glow": 0.096,
+  "lift": 0.012
+ },
+ "skin": {
+  "smooth": 0.3,
+  "brighten": 0.09,
+  "blush": 0.12
+ },
+ "face": {
+  "eyes": 0.06,
+  "jaw": 0.021,
+  "chin": 0.072,
+  "cheek": 0.012
+ },
+ "body": {
+  "waist": 0.021,
+  "arms": 0.018
+ },
+ "smooth_landmarks": 0.6
+}
