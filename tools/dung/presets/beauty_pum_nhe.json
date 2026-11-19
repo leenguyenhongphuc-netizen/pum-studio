@@ -13,7 +13,14 @@
   "smooth": 0.27,
   "brighten": 0.036,
   "blush": 0.15,
-  "rosy": 0.24
+  "rosy": 0.24,
+  "lips": 0.3,
+  "lip_lab": [
+   128,
+   160,
+   138
+  ],
+  "gloss": 0.21
  },
  "face": {
   "eyes": 0.054,

@@ -1,6 +1,36 @@
-{"_note": "20/11/2026 theo góp ý: mặt Pum tròn nhẹ (bỏ kiểu V-line: hàm, cằm chỉnh rất ít), tone hồng nhẹ không trắng bệt (giảm sáng, tăng hồng), dáng thon vừa. Mắt to hơn ~8%.",
- "color": {"exposure": 0.05, "contrast": 0.96, "saturation": 1.0, "warmth": 0.06, "tint": 0.3, "glow": 0.08, "lift": 0.015},
- "skin": {"smooth": 0.45, "brighten": 0.06, "blush": 0.25, "rosy": 0.4},
- "face": {"eyes": 0.09, "jaw": 0.015, "chin": 0.04, "cheek": 0.0},
- "body": {"waist": 0.05, "arms": 0.04},
- "smooth_landmarks": 0.6}
+{
+ "_note": "20/11/2026 theo góp ý: mặt Pum tròn nhẹ (bỏ kiểu V-line: hàm, cằm chỉnh rất ít), tone hồng nhẹ không trắng bệt (giảm sáng, tăng hồng), dáng thon vừa. Mắt to hơn ~8%.",
+ "color": {
+  "exposure": 0.05,
+  "contrast": 0.96,
+  "saturation": 1.0,
+  "warmth": 0.06,
+  "tint": 0.3,
+  "glow": 0.08,
+  "lift": 0.015
+ },
+ "skin": {
+  "smooth": 0.45,
+  "brighten": 0.06,
+  "blush": 0.25,
+  "rosy": 0.4,
+  "lips": 0.5,
+  "lip_lab": [
+   128,
+   160,
+   138
+  ],
+  "gloss": 0.35
+ },
+ "face": {
+  "eyes": 0.09,
+  "jaw": 0.015,
+  "chin": 0.04,
+  "cheek": 0.0
+ },
+ "body": {
+  "waist": 0.05,
+  "arms": 0.04
+ },
+ "smooth_landmarks": 0.6
+}

@@ -13,6 +13,8 @@ import numpy as np, cv2
 MD = pathlib.Path(os.environ.get("PUM_MODELS", "/home/claude/models"))
 
 # chỉ số điểm mốc MediaPipe Face Mesh
+LIP_OUT = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 409, 270, 269, 267, 0, 37, 39, 40, 185]
+LIP_IN = [78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308, 415, 310, 311, 312, 13, 82, 81, 80, 191]
 JAW_L = [172, 136, 150, 149, 176]; JAW_R = [397, 365, 379, 378, 400]
 CHEEK_L, CHEEK_R = [234, 93, 132], [454, 323, 361]
 EYE_L, EYE_R = [33, 133, 159, 145], [362, 263, 386, 374]
@@ -25,7 +27,7 @@ HOLES = [[33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161
 
 DEFAULT = {
     "color": {"exposure": 0.0, "contrast": 1.0, "saturation": 1.0, "warmth": 0.0, "tint": 0.0, "glow": 0.0, "lift": 0.0},
-    "skin": {"smooth": 0.0, "brighten": 0.0, "blush": 0.0, "rosy": 0.0},
+    "skin": {"smooth": 0.0, "brighten": 0.0, "blush": 0.0, "rosy": 0.0, "lips": 0.0, "lip_lab": [128, 163, 144], "gloss": 0.0},
     "face": {"eyes": 0.0, "jaw": 0.0, "chin": 0.0, "cheek": 0.0},
     "body": {"waist": 0.0, "arms": 0.0},
     "smooth_landmarks": 0.6,
@@ -193,6 +195,17 @@ class Beauty:
             bm = cv2.GaussianBlur(bm, (0, 0), fw * 0.06)[..., None] * m
             pink = np.array([150, 120, 240], np.float32)  # BGR hồng phấn
             out = out * (1 - bm * S["blush"]) + (out * 0.55 + pink * 0.45) * bm * S["blush"]
+        if S.get("lips"):  # son: kéo màu môi về màu môi trong video mẫu (Lab a,b), giữ độ sáng và vân môi
+            lmr = lm - [x0, y0]; mm = np.zeros(roi.shape[:2], np.uint8)
+            cv2.fillPoly(mm, [lmr[LIP_OUT].astype(np.int32)], 255); cv2.fillPoly(mm, [lmr[LIP_IN].astype(np.int32)], 0)
+            k = max(3, int(fw * 0.012) | 1); mm = cv2.GaussianBlur(mm, (k, k), 0).astype(np.float32)[..., None] / 255.0
+            lab = cv2.cvtColor(np.clip(out, 0, 255).astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)
+            t = np.array(S["lip_lab"], np.float32); a = S["lips"] * mm[..., 0]
+            lab[..., 1] = lab[..., 1] * (1 - a) + t[1] * a; lab[..., 2] = lab[..., 2] * (1 - a) + t[2] * a
+            if S.get("gloss"):  # bóng nhẹ ở phần sáng của môi
+                L = lab[..., 0]; hi = np.clip((L - np.percentile(L[mm[..., 0] > 0.5], 70) if (mm > 0.5).any() else L * 0) / 40, 0, 1)
+                lab[..., 0] = L + hi * mm[..., 0] * S["gloss"] * 25
+            out = cv2.cvtColor(np.clip(lab, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR).astype(np.float32)
         img[y0:y1, x0:x1] = np.clip(out, 0, 255).astype(np.uint8)
 
     # ---------- màu toàn khung ----------
