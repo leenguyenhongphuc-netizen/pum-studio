@@ -71,13 +71,29 @@ class Beauty:
         else:
             r = self.fl.detect(mi)
         faces = [np.array([[l.x * w, l.y * h] for l in f]) for f in r.face_landmarks]
-        if not faces: self.prev = None; return None
-        faces.sort(key=lambda f: -(np.ptp(f[:, 0]) * np.ptp(f[:, 1])))
-        lm = faces[0]
-        if self.ref is not None and not self._is_pum(img, lm): self.prev = None; return None
-        a = self.P["smooth_landmarks"]
-        if self.prev is not None and np.abs(self.prev - lm).mean() < 0.05 * np.ptp(lm[:, 0]):
-            lm = a * self.prev + (1 - a) * lm
+        self.nf = getattr(self, "nf", 0) + 1
+        lm = None
+        if faces:
+            faces.sort(key=lambda f: -(np.ptp(f[:, 0]) * np.ptp(f[:, 1])))
+            lm = faces[0]; fw = np.ptp(lm[:, 0])
+            tracking = self.prev is not None and np.abs(self.prev.mean(0) - lm.mean(0)).max() < 0.25 * fw
+            # chỉ kiểm danh tính khi mới bắt được mặt hoặc 30 khung một lần: kiểm từng khung làm hiệu ứng bật tắt liên tục
+            if self.ref is not None and (not tracking or self.nf % 30 == 0):
+                self.ok = self._is_pum(img, lm)
+            elif not tracking: self.ok = True
+            if not getattr(self, "ok", True): lm = None
+        if lm is None:
+            self.lost = getattr(self, "lost", 0) + 1
+            if self.prev is not None and self.lost <= 6:  # giữ điểm mốc cũ vài khung, tắt dần cho mượt
+                self.gain = max(0.0, getattr(self, "gain", 0) - 0.18); return self.prev if self.gain > 0 else None
+            self.prev = None; self.gain = 0.0; return None
+        self.lost = 0
+        if self.prev is not None and self.prev.shape == lm.shape:
+            # làm mượt theo từng điểm: điểm đứng yên (rung do máy nhận) được làm mượt mạnh, điểm đang chuyển động (miệng khi nói) giữ nguyên để không trễ khẩu hình
+            fw = np.ptp(lm[:, 0]); d = np.linalg.norm(lm - self.prev, axis=1) / (fw + 1e-6)
+            al = np.clip(self.P["smooth_landmarks"] * (1 - d / 0.008), 0, self.P["smooth_landmarks"])[:, None]
+            lm = al * self.prev + (1 - al) * lm
+        self.gain = min(1.0, getattr(self, "gain", 0) + 0.18)
         self.prev = lm; return lm
 
     def _is_pum(self, img, lm):
@@ -138,6 +154,10 @@ class Beauty:
         if not r.pose_landmarks: return ux, uy
         ps = [np.array([[l.x * w, l.y * h, l.visibility] for l in p]) for p in r.pose_landmarks]
         p = max(ps, key=lambda q: abs(q[11, 0] - q[12, 0]))  # người gần máy nhất (vai rộng nhất)
+        pp = getattr(self, "prevp", None)
+        if pp is not None and np.abs(pp[[11, 12], :2] - p[[11, 12], :2]).max() < 0.1 * w:
+            p = p.copy(); p[:, :2] = 0.75 * pp[:, :2] + 0.25 * p[:, :2]  # dáng: làm mượt mạnh, tránh eo/tay rung
+        self.prevp = p
         sw = abs(p[11, 0] - p[12, 0])
         if sw < 0.05 * w or min(p[11, 2], p[12, 2]) < 0.5: return ux, uy
         hips = min(p[23, 2], p[24, 2]) > 0.5
@@ -236,9 +256,12 @@ class Beauty:
         return out
 
     def apply(self, img):
-        P = self.P; h, w = img.shape[:2]
-        need_face = any(P["face"].values()) or any(P["skin"].values())
+        P0 = self.P; h, w = img.shape[:2]
+        need_face = any(P0["face"].values()) or any(v for k, v in P0["skin"].items() if k != "lip_lab")
         lm = self._landmarks(img) if need_face else None
+        g = getattr(self, "gain", 1.0) if lm is not None else 0.0
+        P = dict(P0); P["face"] = {k: v * g for k, v in P0["face"].items()}; P["body"] = {k: v * g for k, v in P0["body"].items()}
+        P["skin"] = {k: (v * g if k != "lip_lab" else v) for k, v in P0["skin"].items()}
         need_body = self.pose is not None and lm is not None  # chỉ chỉnh dáng khi thấy mặt Pum trong khung
         if (lm is not None and any(P["face"].values())) or need_body:
             sc = 4; gx, gy = np.meshgrid(np.arange(0, w, sc, np.float32), np.arange(0, h, sc, np.float32))

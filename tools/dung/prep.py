@@ -15,7 +15,7 @@ FOOD = ("Tô bánh canh", "Cận tô", "Cận mâm", "Hết sườn vì dậy tr
 
 
 NOBLUR = ("Kịp rồi", "Mây giống gì", "Mây khủng long", "Câu hỏi cuối")  # cảnh trời, cây: máy hay nhận nhầm bóng cây thành mặt
-def noblur(sg): return sg["label"].startswith(NOBLUR) or sg["id"] in ("s95", "s48")
+def noblur(sg): return sg["label"].startswith(NOBLUR + ("Phía sau nhà",)) or str(sg.get("clip", "")).startswith("1Y-NTM")
 
 def preset_for(sg):
     p = json.loads(json.dumps(PRE))
@@ -63,49 +63,87 @@ def worker(job):
     GUIDE = {"1yLnUP9JTatrw9QIYnkx2plVDNwdspaWr"}  # đoạn anh hướng dẫn nói: không coi là Pum tự quay
     selfie = sg.get("voice") == "noi" and sg.get("audio") == "src" and sg["clip"] not in GUIDE and not sg["label"].startswith(("Robusta", "Mùa cà phê", "Pha xong", "Vị khói", "Tự pha"))
     out = OUT / f'{sg["id"]}.mp4'; tmpv = OUT / f'{sg["id"]}.v.mp4'
-    rd = subprocess.Popen(["ffmpeg", "-v", "error", "-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-i", src, "-vf", f"scale={W}:{H}:flags=lanczos,fps=30", "-f", "rawvideo", "-pix_fmt", "bgr24", "-"], stdout=subprocess.PIPE)
+    fs = W * H * 3
+    def reader():
+        return subprocess.Popen(["ffmpeg", "-v", "error", "-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-i", src, "-vf", f"scale={W}:{H}:flags=lanczos,fps=30", "-f", "rawvideo", "-pix_fmt", "bgr24", "-"], stdout=subprocess.PIPE)
+    rec = cv2.FaceRecognizerSF.create(str(M / "face_recognition_sface_2021dec.onnx"), ""); REF = np.load(M / "pum_ref.npy")
+    # ---- lượt 1: dò mặt, biển số; gom mặt thành vệt theo thời gian; quyết định ai là Pum theo cả vệt ----
+    dets = []; pls = []; n = 0
+    if not noblur(sg):
+        rd = reader()
+        while True:
+            buf = rd.stdout.read(fs)
+            if len(buf) < fs: break
+            if n % 2 == 0:
+                img = np.frombuffer(buf, np.uint8).reshape(H, W, 3)
+                det.setInputSize((W, H)); _, f = det.detect(img)
+                for r in ([] if f is None else f):
+                    if r[2] < 10 or r[14] < (0.6 if r[2] > 60 else 0.7): continue
+                    sim = None
+                    if r[2] >= 36:
+                        e = rec.feature(rec.alignCrop(img, r)).flatten(); e /= np.linalg.norm(e) + 1e-9; sim = float((REF @ e).max())
+                    dets.append([n, float(r[0]), float(r[1]), float(r[2]), float(r[3]), sim])
+                if n % 4 == 0:
+                    for x0, y0, bw, bh in plates(img, 0.45):
+                        if 1.3 <= bw / max(bh, 1) <= 6.5 and bw >= 18: pls.append([n, x0, y0, bw, bh])
+            n += 1
+        rd.stdout.close(); rd.wait()
+    # vệt mặt
+    tracks = []
+    for d in sorted(dets):
+        cx, cy = d[1] + d[3] / 2, d[2] + d[4] / 2; bestt = None
+        for t in tracks:
+            l = t[-1]
+            if 0 < d[0] - l[0] <= 8 and abs(cx - (l[1] + l[3] / 2)) < 0.7 * max(d[3], l[3]) and abs(cy - (l[2] + l[4] / 2)) < 0.7 * max(d[4], l[4]) and 0.5 < d[3] / l[3] < 2:
+                bestt = t; break
+        (bestt.append(d) if bestt else tracks.append([d]))
+    big_per_frame = {}
+    for d in dets: big_per_frame[d[0]] = max(big_per_frame.get(d[0], 0), d[3])
+    pum_tracks, blur_tracks = [], []
+    for t in tracks:
+        sims = [d[5] for d in t if d[5] is not None]; mw = float(np.mean([d[3] for d in t]))
+        largest = np.mean([d[3] >= 0.7 * big_per_frame[d[0]] for d in t]) > 0.6
+        edge = np.mean([d[1] < 4 or d[2] < 4 or d[1] + d[3] > W - 4 for d in t]) > 0.5
+        if sims and (max(sims) >= 0.30 or np.median(sims) >= 0.22): pum_tracks.append(t)
+        elif selfie and largest and mw > 0.05 * W: pum_tracks.append(t)
+        elif edge and mw > 0.06 * W: pum_tracks.append(t)
+        elif sims and max(sims) < 0.16 and len(sims) >= 2: blur_tracks.append(t)
+        elif mw < 0.035 * W: blur_tracks.append(t)          # mặt nhỏ phía xa: người lạ
+        elif len(t) >= 3 and not selfie: blur_tracks.append(t)
+        else: pum_tracks.append(t)                         # không chắc: không che (che nhầm Pum tệ hơn)
+    def interp(t):  # khung -> hộp, nội suy giữa các lần dò, kéo dài 3 khung hai đầu
+        out = {}
+        for d0, d1 in zip(t, t[1:] + [t[-1]]):
+            for k in range(d0[0], max(d0[0] + 2, d1[0])):
+                u = (k - d0[0]) / max(1, d1[0] - d0[0]); out[k] = [d0[i] + (d1[i] - d0[i]) * u for i in (1, 2, 3, 4)]
+        for k in range(t[0][0] - 3, t[0][0]): out[k] = t[0][1:5]
+        for k in range(t[-1][0] + 1, t[-1][0] + 4): out[k] = t[-1][1:5]
+        return out
+    fblur = {}
+    for t in blur_tracks:
+        for k, bx in interp(t).items(): fblur.setdefault(k, []).append(("face", bx))
+    pumbox = {}
+    for t in pum_tracks:
+        for k, bx in interp(t).items(): pumbox.setdefault(k, []).append(bx)
+    for p_ in pls:
+        k0, x0, y0, bw, bh = p_
+        onpum = any(px - pw * 1.3 < x0 + bw / 2 < px + pw * 2.3 and y0 > py for px, py, pw, ph in pumbox.get(k0, []))
+        if onpum: continue
+        for k in range(k0 - 2, k0 + 5): fblur.setdefault(k, []).append(("plate", [x0, y0, bw, bh]))
+    # ---- lượt 2: làm đẹp + che ----
+    rd = reader()
     wr = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}", "-r", "30", "-i", "-",
                            "-c:v", "libx264", "-preset", "fast", "-crf", "12", "-pix_fmt", "yuv420p", str(tmpv)], stdin=subprocess.PIPE)
-    fs = W * H * 3; n = 0; hold = []; st = {"frames": 0, "pum": 0, "stranger": 0, "plate": 0}
+    n = 0; st = {"frames": 0, "pum": 0, "stranger": 0, "plate": 0, "tracks": len(tracks), "blur_tracks": len(blur_tracks)}
     while True:
         buf = rd.stdout.read(fs)
         if len(buf) < fs: break
         img = np.frombuffer(buf, np.uint8).reshape(H, W, 3).copy()
         out_img = B.apply(img)
-        pum_lm = B.prev
-        if pum_lm is not None: st["pum"] += 1
-        if n % 2 == 0 and not noblur(sg):
-            new = []; det.setInputSize((W, H)); _, f = det.detect(img)
-            ff = [] if f is None else [r for r in f if r[14] >= 0.62]
-            big = max([r[2] for r in ff], default=0)
-            for r in ([] if f is None else f):
-                if selfie and r[2] >= big * 0.7 and r[2] > 0.06 * W: continue  # đoạn Pum tự quay: mặt lớn nhất là Pum
-                x, y, fw, fh = r[:4]
-                if fw < 10 or r[14] < (0.62 if fw > 60 else 0.72): continue  # bỏ nhận nhầm (cốc, tường)
-                if fw > 0.06 * W and (y < 4 or x < 4 or x + fw > W - 4): continue  # mặt bị cắt ở mép khung: thường là cằm Pum cầm máy, không che
-                if fw > 0.12 * W and pum_lm is None:  # mặt rất to sát máy: gần như luôn là Pum quay selfie
-                    if B.ref is None: continue
-                    e = B.rec.feature(B.rec.alignCrop(img, r)).flatten(); e /= np.linalg.norm(e) + 1e-9
-                    if float((B.ref @ e).max()) >= 0.12: continue
-                if pum_lm is not None:
-                    c = pum_lm.mean(0)
-                    if abs(x + fw / 2 - c[0]) < fw * 0.7 and abs(y + fh / 2 - c[1]) < fh * 0.8: continue  # mặt Pum
-                elif B.ref is not None and fw >= 40:
-                    e = B.rec.feature(B.rec.alignCrop(img, r)).flatten(); e /= np.linalg.norm(e) + 1e-9
-                    if float((B.ref @ e).max()) >= 0.24: continue
-                new.append([x, y, fw, fh, 6, "face"])
-            if n % 4 == 0:
-                for x0, y0, bw, bh in plates(img, 0.4):
-                    if pum_lm is not None:
-                        fx0, fx1 = pum_lm[:, 0].min(), pum_lm[:, 0].max(); fwid = fx1 - fx0
-                        if fx0 - fwid * 1.2 < x0 + bw / 2 < fx1 + fwid * 1.2 and y0 > pum_lm[:, 1].min(): continue  # trên người Pum: không che
-                    new.append([x0, y0, bw, bh, 8, "plate"])
-            else:
-                new += [h_ for h_ in hold if h_[5] == "plate" and h_[4] > 2]
-            hold = [h_ for h_ in hold if h_[4] > 0 and h_[5] == "face"] + new
-        for h_ in hold:
-            blur_box(out_img, h_[0], h_[1], h_[2], h_[3], pad=0.4 if h_[5] == "plate" else 0.35, ellipse=h_[5] == "face"); h_[4] -= 1
-        st["stranger"] += any(h_[5] == "face" for h_ in hold); st["plate"] += any(h_[5] == "plate" for h_ in hold)
+        if B.prev is not None: st["pum"] += 1
+        for kind, (x, y, bw, bh) in fblur.get(n, []):
+            blur_box(out_img, x, y, bw, bh, pad=0.4 if kind == "plate" else 0.35, ellipse=kind == "face")
+        st["stranger"] += any(k_ == "face" for k_, _ in fblur.get(n, [])); st["plate"] += any(k_ == "plate" for k_, _ in fblur.get(n, []))
         wr.stdin.write(out_img.tobytes()); n += 1
     wr.stdin.close(); wr.wait(); rd.wait(); st["frames"] = n
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(tmpv), "-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-i", src, "-map", "0:v", "-map", "1:a?",
@@ -122,10 +160,9 @@ def main():
     todo = []
     for sg in E["segments"]:
         c = CL[sg["clip"]]; src = c["path"]
-        key = hashlib.sha1(json.dumps([sg["clip"], sg["in"], sg["out"], preset_for(sg), "v3"] + (["noblur"] if noblur(sg) else []), sort_keys=True).encode()).hexdigest()[:12]
+        key = hashlib.sha1(json.dumps([sg["clip"], sg["in"], sg["out"], preset_for(sg), "v4"] + (["noblur"] if noblur(sg) else []), sort_keys=True).encode()).hexdigest()[:12]
         sg["_key"] = key; sg["_src"] = src
         r0 = rep.get(sg["id"], {})
-        if r0 and r0.get("stranger", 1) == 0 and r0.get("plate", 1) == 0 and r0.get("src") == [sg["clip"], sg["in"], sg["out"]]: sg["_key"] = r0["key"] = key  # không có gì để che: giữ bản cũ
         if (only and sg["id"] not in only) or (rep.get(sg["id"], {}).get("key") == key and (OUT / f'{sg["id"]}.mp4').exists()): continue
         todo.append((sg, src, float(sg["in"]), float(sg["out"]), c.get("w") or 1920, c.get("h") or 1080))
     print("cần xử lý", len(todo), "đoạn", flush=True); t0 = time.time()

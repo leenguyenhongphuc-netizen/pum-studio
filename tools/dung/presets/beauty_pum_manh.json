@@ -32,5 +32,5 @@
   "waist": 0.07,
   "arms": 0.056
  },
- "smooth_landmarks": 0.6
+ "smooth_landmarks": 0.75
 }

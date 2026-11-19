@@ -139,7 +139,7 @@ def wrap(draw, text, font, maxw):
         out += lines
     return out
 
-def card(text, style, W, H, fx):
+def card(text, style, W, H, fx, where=None):
     """Trả về ảnh RGBA cỡ W×H có đúng một mảng chữ theo kiểu thương hiệu."""
     S = W / 1920
     im = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d0 = ImageDraw.Draw(im)
@@ -165,7 +165,7 @@ def card(text, style, W, H, fx):
     elif st == "postcard":
         f = F(fx["play"], int(64 * S), 700); lines = wrap(d0, text, f, W * 0.55)
         b = block(lines, f, (int(36 * S), int(22 * S)), COL["paper"], COL["cocoa"], int(10 * S), -3)
-        pos = (int(W * 0.06), int(H * 0.70) - (len(lines) - 1) * int(60 * S))
+        pos = (int(W * 0.06), int(H * 0.70) - (len(lines) - 1) * int(60 * S)) if where != "top" else (int(W * 0.06), int(H * 0.10))
     elif st == "label":
         f = F(fx["nunito"], int(60 * S), 900); lines = [text.upper()]
         b = block(lines, f, (int(34 * S), int(13 * S)), COL["tape"], COL["cocoa"], int(40 * S), 0)
@@ -209,7 +209,11 @@ Style: Pum,Be Vietnam Pro ExtraBold,{int(62*S)},&H00FFFFFF,&H00FFFFFF,&H00302639
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
-    ev = [f"Dialogue: 0,{ass_time(a)},{ass_time(b)},Pum,,0,0,0,,{t.replace(chr(10), chr(92)+'N')}" for a, b, t in subs if b - a > 0.15 and t.strip()]
+    subs = sorted(subs, key=lambda z: z[0]); cl = []
+    for k, (a, b, t) in enumerate(subs):  # không để hai dòng phụ đề chồng nhau
+        if k + 1 < len(subs): b = min(b, subs[k + 1][0] - 0.02)
+        cl.append((a, b, t))
+    ev = [f"Dialogue: 0,{ass_time(a)},{ass_time(b)},Pum,,0,0,0,,{t.replace(chr(10), chr(92)+'N')}" for a, b, t in cl if b - a > 0.15 and t.strip()]
     Path(path).write_text(head + "\n".join(ev) + "\n", encoding="utf-8")
 
 def chunk_words(words, maxc=42, maxdur=3.2):
@@ -224,14 +228,14 @@ def chunk_words(words, maxc=42, maxdur=3.2):
 
 # ---------- dựng một đoạn ----------
 _FD = None
-def face_box(src, t, W, H):
+def face_box(src, t, W, H, pre=""):
     """mặt lớn nhất ở giây t (để đặt doodle cạnh mặt, không đè mặt)"""
     global _FD
     try:
         import cv2
         if _FD is None:
             _FD = cv2.FaceDetectorYN.create("/home/claude/models/face_detection_yunet_2023mar.onnx", "", (320, 320), 0.6, 0.3, 50)
-        raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t + 0.3:.2f}", "-i", src, "-frames:v", "1", "-vf", f"scale={W}:{H}", "-f", "image2pipe", "-vcodec", "png", "-"], capture_output=True).stdout
+        raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t + 0.3:.2f}", "-i", src, "-frames:v", "1", "-vf", f"{pre}scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H}", "-f", "image2pipe", "-vcodec", "png", "-"], capture_output=True).stdout
         img = cv2.imdecode(np.frombuffer(raw, np.uint8), 1)
         if img is None: return None
         _FD.setInputSize((img.shape[1], img.shape[0])); _, f = _FD.detect(img)
@@ -240,27 +244,41 @@ def face_box(src, t, W, H):
     except Exception:
         return None
 
-def doodle_pos(face, W, H, size, j, has_text):
-    if face:
-        x, y, w, h = face
-        right = x + w * 1.15; left = x - w * 0.15 - size
-        if right + size < W * 0.95: px = right
-        elif left > W * 0.04: px = left
-        else: px = W * 0.78
-        py = max(H * 0.08, y - size * 0.35)
-    else:
-        px, py = W * 0.76, H * 0.16
-    if has_text and px < W * 0.5 and py < H * 0.32: py = H * 0.36  # chừa chỗ băng chữ góc trái trên
-    px += (j % 2) * size * 0.25
-    return int(px), int(min(py, H * 0.6))
+def doodle_pos(face, W, H, size, j, has_text, used=()):
+    """chọn chỗ đặt doodle: không đè mặt (nới 25%), không đè băng chữ góc trái trên, không xuống vùng phụ đề;
+    ưu tiên chỗ xa mặt vừa phải, đổi bên giữa các doodle trong cùng cảnh"""
+    C = [(0.80, 0.09), (0.62, 0.08), (0.84, 0.36), (0.05, 0.38), (0.06, 0.10), (0.30, 0.08), (0.70, 0.50), (0.12, 0.52)]
+    best = None
+    for cx, cy in C:
+        x, y = cx * W, cy * H
+        if has_text and cx < 0.5 and cy < 0.32: continue
+        if y + size > H * 0.70: continue
+        if any(abs(x - ux) < size * 0.9 and abs(y - uy) < size * 0.9 for ux, uy in used): continue
+        if face:
+            fx_, fy_, fw, fh = face; ex, ey = fw * 0.25, fh * 0.25
+            ox = max(0, min(x + size, fx_ + fw + ex) - max(x, fx_ - ex)); oy = max(0, min(y + size, fy_ + fh + ey) - max(y, fy_ - ey))
+            if ox * oy > 0: continue
+            dx = max(fx_ - ex - (x + size), x - (fx_ + fw + ex), 0); dy = max(fy_ - ey - (y + size), y - (fy_ + fh + ey), 0)
+            d = (dx * dx + dy * dy) ** 0.5; sc = -abs(d - W * 0.12)  # gần mặt vừa đủ, không dính mặt
+        else:
+            sc = -C.index((cx, cy)) * 10
+        if best is None or sc > best[0]: best = (sc, x, y)
+    if best is None: return int(W * 0.80), int(H * 0.09)
+    return int(best[1]), int(best[2])
 
 def seg_render(i, sg, clips, W, H, fx, tmp):
     src = sg.get("path") or clips[sg["clip"]]["path"]; info = clips.get(sg.get("clip"), {})
-    a, b = float(sg["in"]), float(sg["out"]); sp = float(sg.get("speed", 1)); dur = (b - a) / sp
+    a, b = float(sg["in"]), float(sg["out"]); sp = float(sg.get("speed", 1))
+    NF = max(1, int(round((b - a) / sp * FPS))); dur = NF / FPS  # đúng số khung: hình và tiếng mỗi đoạn dài bằng nhau tuyệt đối
     vw, vh = info.get("w") or 1920, info.get("h") or 1080
     fit = sg.get("fit") or ("blur" if vh > vw else "fill")
     z = sg.get("zoom")
     vf = []
+    pre = ""
+    if sg.get("crop"):  # cắt khung (bỏ mép có người đi cùng): [x, y, w, h] tỉ lệ 0..1 của khung gốc
+        cx, cy, cw, ch_ = [float(v) for v in sg["crop"]]
+        pre = f"crop=trunc(iw*{cw}/2)*2:trunc(ih*{ch_}/2)*2:trunc(iw*{cx}):trunc(ih*{cy}),"
+        vf.append(pre[:-1])
     if fit == "blur":
         vf.append(f"split[a][b];[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},gblur=sigma=28,eq=brightness=-0.06[bg];[b]scale=-2:{H}[fg];[bg][fg]overlay=(W-w)/2:0")
     else:
@@ -281,7 +299,7 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         s0, s1 = float(h.get("start", 0)), float(h.get("end", dur))
         fc.append(f"[{last}]split[h{j}a][h{j}b];[h{j}b]crop={bw}:{bh}:{bx}:{by},boxblur=luma_radius=min(w\\,h)/5:luma_power=3[h{j}c];[h{j}a][h{j}c]overlay={bx}:{by}:enable='between(t,{s0:.2f},{s1:.2f})'[h{j}]"); last = f"h{j}"
     for j, t in enumerate(sg.get("text", [])):
-        png = tmp / f"t{i}_{j}.png"; card(t["text"], t.get("style", "tape"), W, H, fx).save(png)
+        png = tmp / f"t{i}_{j}.png"; card(t["text"], t.get("style", "tape"), W, H, fx, t.get("pos")).save(png)
         inputs += ["-loop", "1", "-t", f"{dur:.3f}", "-i", str(png)]
         s0, s1 = float(t.get("start", 0)), float(t.get("end", dur))
         fade = f"fade=t=in:st={s0:.2f}:d=0.18:alpha=1,fade=t=out:st={max(s0,s1-0.18):.2f}:d=0.18:alpha=1"
@@ -289,18 +307,22 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         fc.append(f"[{k}:v]format=rgba,{fade}[o{k}]"); fc.append(f"[{last}][o{k}]overlay=x=0:y='{bounce}':enable='between(t,{s0:.2f},{s1:.2f})'[v{k}]"); last = f"v{k}"; k += 1
     # doodle vẽ tay: 3 khung rung luân phiên, bật nảy, đặt cạnh mặt Pum (né chữ góc trái trên)
     if sg.get("doodles"):
-        from doodle import doodle as _dd
-        face = face_box(src, a, W, H)
+        from doodle import anim as _anim
+        used = []
         for j, dd in enumerate(sg["doodles"]):
-            s0, s1 = float(dd["start"]), float(dd["end"]); size = int(H * dd.get("size", 0.21))
-            x, y = doodle_pos(face, W, H, size, j, bool(sg.get("text")))
-            for fr in range(3):
-                png = tmp / f"d{i}_{j}_{fr}.png"; _dd(dd["kind"], size, fr).save(png)
-                inputs += ["-loop", "1", "-t", f"{dur:.3f}", "-i", str(png)]
-                en = f"between(t,{s0:.2f},{s1:.2f})*eq(mod(floor((t-{s0:.2f})/0.13),3),{fr})"
-                yb = f"{y}-40*exp(-(t-{s0:.2f})*8)*cos((t-{s0:.2f})*24)"
-                fc.append(f"[{k}:v]format=rgba,fade=t=in:st={s0:.2f}:d=0.1:alpha=1,fade=t=out:st={max(s0, s1-0.15):.2f}:d=0.15:alpha=1[dd{k}]")
-                fc.append(f"[{last}][dd{k}]overlay=x={x}:y='{yb}':enable='{en}'[v{k}]"); last = f"v{k}"; k += 1
+            s0, s1 = float(dd["start"]), min(float(dd["end"]), dur - 0.05); size = int(H * dd.get("size", 0.21))
+            if s1 - s0 < 0.4: continue
+            fs = [f_ for f_ in (face_box(src, a + q_ * sp, W, H, pre) for q_ in (s0, (s0 + s1) / 2)) if f_] if fit != "blur" else []
+            face = (min(f_[0] for f_ in fs), min(f_[1] for f_ in fs), max(f_[0] + f_[2] for f_ in fs) - min(f_[0] for f_ in fs),
+                    max(f_[1] + f_[3] for f_ in fs) - min(f_[1] for f_ in fs)) if fs else None
+            txt_on = any(float(t.get("start", 0)) < s1 and float(t.get("end", dur)) > s0 and t.get("style") in ("tape", "label") or t.get("pos") == "top" for t in sg.get("text", []))
+            x, y = doodle_pos(face, W, H, size, j, txt_on, used); used.append((x, y))
+            frames, C = _anim(dd["kind"], size, s1 - s0)
+            for q, im in enumerate(frames): im.save(tmp / f"d{i}_{j}_{q:03d}.png")
+            ox, oy = x - (C - size) // 2, y - (C - size) // 2
+            inputs += ["-framerate", "15", "-start_number", "0", "-i", str(tmp / f"d{i}_{j}_%03d.png")]
+            fc.append(f"[{k}:v]format=rgba,fps={FPS},setpts=PTS-STARTPTS+{s0:.3f}/TB[dd{k}]")
+            fc.append(f"[{last}][dd{k}]overlay=x={ox}:y={oy}:eof_action=pass:enable='between(t,{s0:.2f},{s1:.2f})'[v{k}]"); last = f"v{k}"; k += 1
     # âm thanh
     mode = sg.get("audio", "src"); vol = float(sg.get("vol", 1.0))
     has_a = info.get("audio", True)
@@ -322,11 +344,13 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         dn = ",arnndn=m=/home/claude/models/sh.rnnn:mix=0.88,afftdn=nr=8:nf=-38:tn=1,equalizer=f=3200:t=q:w=1.2:g=2" if vo.get("speech") and Path("/home/claude/models/sh.rnnn").exists() else ""
         fc.append(f"[{k}:a]aresample={SR},aformat=channel_layouts=stereo,highpass=f=85{dn},acompressor=threshold=-20dB:ratio=3:attack=5:release=120,volume={float(vo.get('vol',1.15)):.2f},adelay={ms}|{ms}[vo]")
         fc.append(f"[{alast}][vo]amix=inputs=2:normalize=0:duration=first[am]"); alast = "am"; k += 1
-    fc.append(f"[{alast}]apad,atrim=0:{dur:.3f}[aout]")
-    out = tmp / f"seg{i:03d}.mp4"
-    sh(["ffmpeg", "-y", "-v", "error", *inputs, "-filter_complex", ";".join(fc), "-map", f"[{last}]", "-map", "[aout]",
-        "-t", f"{dur:.3f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "15", "-pix_fmt", "yuv420p", "-r", str(FPS),
-        "-c:a", "aac", "-b:a", "192k", "-ar", str(SR), "-ac", "2", str(out)])
+    fc.append(f"[{alast}]aresample={SR},apad,atrim=end_sample={NF * SR // FPS},asetpts=N/SR/TB[aout]")
+    fc.append(f"[{last}]fps={FPS},tpad=stop_mode=clone:stop_duration=0.5,trim=end_frame={NF},setpts=N/{FPS}/TB[vfin]")
+    out = tmp / f"seg{i:03d}.mp4"; outa = tmp / f"seg{i:03d}.wav"
+    # hình (không tiếng) và tiếng (PCM, đúng số mẫu) ghi riêng: ghép AAC nhiều đoạn làm tiếng trễ dần ~0,03 s mỗi chỗ nối
+    sh(["ffmpeg", "-y", "-v", "error", *inputs, "-filter_complex", ";".join(fc),
+        "-map", "[vfin]", "-frames:v", str(NF), "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "15", "-pix_fmt", "yuv420p", "-r", str(FPS), str(out),
+        "-map", "[aout]", "-vn", "-c:a", "pcm_s16le", "-ar", str(SR), "-ac", "2", str(outa)])
     return out, dur
 
 def seg_subs(sg, scan, t0):
@@ -352,9 +376,10 @@ def main():
     m = json.loads((d / "match.json").read_text()); clips = dict(m["clips"])
     for p, i in m.get("unassigned", {}).items(): clips["u:" + hashlib.sha1(p.encode()).hexdigest()[:8]] = {"path": p, **i}
     scan = json.loads((d / "scan.json").read_text()) if (d / "scan.json").exists() else {}
-    segs = E["segments"]; files = []; tl = []; subs = []; t = 0.0
+    segs = E["segments"]; files = []; tl = []; subs = []; t = 0.0; nom = []; tn = 0.0
     for i, sg in enumerate(segs):
         f, dur = seg_render(i, sg, clips, W, H, fx, tmp); files.append(f)
+        nom.append((tn, t)); tn += (float(sg["out"]) - float(sg["in"])) / float(sg.get("speed", 1))
         tl.append({"id": sg.get("id", f"s{i+1}"), "label": sg.get("label", ""), "chapter": sg.get("chapter", ""), "start": round(t, 2), "end": round(t + dur, 2),
                    "clip": sg.get("clip"), "in": sg["in"], "out": sg["out"], "kind": sg.get("kind", ""), "text": [x["text"] for x in sg.get("text", [])], "vo": bool(sg.get("vo")),
                    "voice": sg.get("voice", ""), "say": sg.get("say", ""), "voReq": sg.get("voReq")})
@@ -363,6 +388,10 @@ def main():
     total = t
     (tmp / "list.txt").write_text("".join(f"file '{f}'\n" for f in files))
     sh(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(tmp / "list.txt"), "-c", "copy", str(tmp / "base.mp4")])
+    (tmp / "alist.txt").write_text("".join(f"file '{str(f)[:-4]}.wav'\n" for f in files))
+    sh(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(tmp / "alist.txt"), "-c", "copy", str(tmp / "base.wav")])
+    def remap(x):  # giờ trong edl (cộng dồn danh nghĩa) -> giờ thật sau khi làm tròn khung
+        k = max([j for j, (a_, _) in enumerate(nom) if a_ <= x + 1e-6], default=0); return nom[k][1] + (x - nom[k][0])
     build_ass(subs, W, H, tmp / "subs.ass")
     # chuyển cảnh thương hiệu (webm nền trong) đặt tại điểm nối
     vin = ["-i", str(tmp / "base.mp4")]; fc = []; last = "0:v"; k = 1
@@ -382,7 +411,7 @@ def main():
     mus = []; credits = []
     for c in E.get("music", []):
         p, info = music_file(c["track"]); credits.append(info["title"])
-        st, en = float(c["start"]), float(c["end"]); fr = float(c.get("from", 0)); dur = en - st
+        st, en = remap(float(c["start"])), remap(float(c["end"])); fr = float(c.get("from", 0)); dur = en - st
         ain += ["-i", str(p)]
         fi, fo = float(c.get("fadein", 1.2)), float(c.get("fadeout", 2.0))
         a_fc.append(f"[{ai}:a]atrim={fr:.2f}:{fr+dur:.2f},asetpts=PTS-STARTPTS,aresample={SR},aformat=channel_layouts=stereo,volume={float(c.get('vol',0.16)):.3f},afade=t=in:d={fi},afade=t=out:st={max(0,dur-fo):.2f}:d={fo},adelay={int(st*1000)}|{int(st*1000)}[m{ai}]")
@@ -390,7 +419,7 @@ def main():
     sfx = []
     for s in E.get("sfx", []):
         p = sfx_file(s["name"]); ain += ["-i", str(p)]
-        ms = int(float(s["at"]) * 1000)
+        ms = int(remap(float(s["at"])) * 1000)
         a_fc.append(f"[{ai}:a]aresample={SR},aformat=channel_layouts=stereo,volume={float(s.get('vol',0.5)):.2f},adelay={ms}|{ms}[f{ai}]"); sfx.append(f"[f{ai}]"); ai += 1
     a_fc.append(f"[0:a]apad,atrim=0:{total+4:.2f},asplit=2[dia][key]")  # dư 4 s: loudnorm giữ 3 s nhìn trước, không để đuôi bị câm
     mix = ["[dia]"]
@@ -401,7 +430,7 @@ def main():
     mix += sfx
     a_fc.append(f"{''.join(mix)}amix=inputs={len(mix)}:normalize=0:duration=first,loudnorm=I=-14:TP=-2:LRA=11,aresample={SR}[aout]")
     mixw = tmp / "mix.wav"
-    sh(["ffmpeg", "-y", "-v", "error", "-i", str(tmp / "base.mp4"), *ain, "-filter_complex", ";".join(a_fc), "-map", "[aout]", "-c:a", "pcm_s16le", str(mixw)])
+    sh(["ffmpeg", "-y", "-v", "error", "-i", str(tmp / "base.wav"), *ain, "-filter_complex", ";".join(a_fc), "-map", "[aout]", "-c:a", "pcm_s16le", str(mixw)])
     vin2 = [*vin, "-i", str(mixw)]; amap = f"{k}:a"
     final = out / "final.mp4"; proxy = out / "proxy.mp4"
     if not proxy_only:
