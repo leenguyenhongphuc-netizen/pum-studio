@@ -696,6 +696,8 @@ const IC = {
   starOn:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
   check:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
   dot:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="12" cy="12" r="7"/></svg>',
+  mic:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>',
+  stop:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>',
   up:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M6.5 9.5 12 4l5.5 5.5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>',
   drive:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 3.5h7l6 10.5-3.5 6h-12L2.5 14z"/><path d="M8.5 3.5 15 14.5H2.5M15.5 3.5 9 14.5l-3 5.5M21.5 14H15l3 6"/></svg>',
   cam:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6.5" width="13" height="11" rx="2.5"/><path d="M15.5 10.5 21.5 7v10l-6-3.5z"/></svg>',
@@ -1146,6 +1148,7 @@ function stepDraft(sb, sc, st, e){
     <div id="segAct"></div>
     <div class="row" style="margin-top:12px"><button class="btn ghost" data-noteat="1">Góp ý tại giây đang xem</button></div>
   </section>
+  <div id="segListBox"></div>
   <section class="pub">
     <h3 class="disp">Góp ý trên bản nháp <span class="tag ${notes.length?"":"soft"}">${notes.length}</span></h3>
     ${notes.length ? `<ul class="notes">${notes.map(x => `<li><button type="button" class="tbtn" data-seek="${x.t||0}">${fmtT(x.t)}</button><div><b>${esc(NOTEK[x.kind] || "Góp ý")}</b>${x.seg ? ` · ${esc(x.segLabel || "")}` : ""}<p>${esc(x.text || "")}</p></div><button type="button" class="cdel" data-delnote="${x.id}" aria-label="Xoá góp ý">${IC.x}</button></li>`).join("")}</ul>` : `<p class="muted">Chưa có góp ý nào. Xem bản nháp, chạm vào đoạn muốn sửa.</p>`}
@@ -1212,7 +1215,72 @@ function stepDraft(sb, sc, st, e){
   };
   const hookVid = () => { const v2 = vid(); if (v2) v2.ontimeupdate = syncPH; };
   hookVid();
-  encJSON(`drafts/${n}/v${v}.json.enc`).then(j => { TL = j; drawTL(); if (vid()) subList(); }).catch(() => { $("#tl").innerHTML = `<p class="notice small">Chưa mở được dòng thời gian.</p>`; });
+  encJSON(`drafts/${n}/v${v}.json.enc`).then(j => { TL = j; drawTL(); if (vid()) subList(); const slb = $("#segListBox"); if (slb){ slb.innerHTML = segListHTML(TL, n); bindSegList(slb, n, v, TL, t => { const v2 = vid(); if (v2){ v2.currentTime = t + 0.05; v2.play().catch(()=>{}); v2.scrollIntoView({block:"center"}); } else { const o = $("#openDraft"); if (o){ o.scrollIntoView({block:"center"}); toast("Bấm Mở bản nháp trước nha"); } } }); } }).catch(() => { $("#tl").innerHTML = `<p class="notice small">Chưa mở được dòng thời gian.</p>`; });
+}
+
+/* ---------- từng đoạn của bản nháp + Pum lồng tiếng ngay trong app ----------
+   Giọng Pum lưu ở kho vids, mã v_<tập>_<đoạn> (âm thanh nén ~48 kbps, base64). AI lấy bằng `pumdung.py vo <tập>`. */
+const voKey = (n, sid) => `v_${n}_${sid}`;
+const VOICEL = {noi:"Pum nói tại chỗ", vo:"Cần Pum lồng tiếng", "":"Không lời"};
+const REC = {mr:null, chunks:[], t0:0, timer:null, sid:"", blob:null, url:"", mime:""};
+function voMime(){ const c = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm", "audio/ogg;codecs=opus"]; return (window.MediaRecorder && c.find(m => MediaRecorder.isTypeSupported(m))) || ""; }
+function segListHTML(TL, n){
+  const segs = TL.segments, req = segs.filter(s => s.voReq), done = req.filter(s => S.vids[voKey(n, s.id)]);
+  const voCard = s => { const d = S.vids[voKey(n, s.id)], r = s.voReq || {};
+    return `<div class="voreq ${d ? "ok" : ""}" data-vosid="${esc(s.id)}">
+      <p class="vohead"><b>${d ? `${IC.check}Đã có giọng Pum` : "Cần Pum lồng tiếng"}</b>${r.sec ? `<span class="muted small">đọc trong khoảng ${Math.round(r.sec)} giây</span>` : ""}</p>
+      <blockquote class="voline">${esc(r.text || "")}</blockquote>
+      ${r.note ? `<p class="small muted">${esc(r.note)}</p>` : ""}
+      ${d ? `<audio controls preload="none" src="data:${esc(d.mime || "audio/webm")};base64,${d.data}"></audio>` : r.temp ? `<p class="small muted">Bản nháp đang dùng giọng đọc mẫu cho đoạn này.</p>` : ""}
+      <div class="recbox" id="rec-${esc(s.id)}"></div>
+      <div class="row vobtns"><button type="button" class="btn rose" data-rec="${esc(s.id)}">${IC.mic}${d ? "Thu lại" : "Ghi âm"}</button>
+        <label class="btn ghost"><input type="file" accept="audio/*" data-voup="${esc(s.id)}" hidden>${IC.up}Chọn file ghi âm</label></div>
+    </div>`; };
+  return `<section class="pub" id="segBox">
+    <h3 class="disp">Từng đoạn của bản nháp</h3>
+    <p class="muted">${segs.length} đoạn. ${req.length ? `<b>${req.length - done.length} đoạn cần Pum lồng tiếng</b> (đã thu ${done.length}/${req.length}). Đọc đúng câu trong khung, giọng tự nhiên như kể cho bạn, chỗ yên tĩnh, điện thoại cách miệng một gang tay.` : "Bản này không có đoạn cần lồng tiếng."}</p>
+    ${req.length ? `<div class="row" style="margin:8px 0 4px"><button type="button" class="btn small ghost" data-onlyvo="1" aria-pressed="${LS.get("onlyVo", false)}">Chỉ hiện đoạn cần lồng tiếng</button></div>` : ""}
+    <ol class="seglist ${LS.get("onlyVo", false) ? "onlyvo" : ""}">${segs.map((s, i) => `<li class="sg ${s.voReq ? "needvo" : ""}">
+      <button type="button" class="sgth" data-seek="${s.start}" aria-label="Xem đoạn ${i + 1}">${s.thumb ? `<img src="${s.thumb}" alt="">` : ""}<em>${fmtT(s.start)}</em></button>
+      <div class="sgb"><p class="sgt"><b>${esc(s.label || "Đoạn " + (i + 1))}</b><span class="muted small">${esc(s.chapter || "")} · ${Math.round(s.end - s.start)} giây</span></p>
+        <span class="vpill v-${s.voReq ? "vo" : s.voice === "noi" ? "noi" : "x"}">${s.voReq ? "Cần Pum lồng tiếng" : VOICEL[s.voice] || VOICEL[""]}</span>
+        ${s.say ? `<p class="say">${s.voice === "noi" ? "Pum nói: " : ""}“${esc(s.say)}”</p>` : ""}
+        ${(s.text || []).length ? `<p class="small muted">Chữ trên hình: ${esc(s.text.join(" / "))}</p>` : ""}
+      </div>${s.voReq ? voCard(s) : ""}</li>`).join("")}</ol>
+  </section>`;
+}
+function stopRec(){ try{ REC.mr && REC.mr.state !== "inactive" && REC.mr.stop(); }catch(e){} clearInterval(REC.timer); }
+function bindSegList(root, n, v, TL, seekFn){
+  root.querySelectorAll("#segBox [data-seek]").forEach(b => b.onclick = () => seekFn(Number(b.dataset.seek)));
+  const only = root.querySelector("[data-onlyvo]"); if (only) only.onclick = () => { const on = !LS.get("onlyVo", false); LS.set("onlyVo", on); only.setAttribute("aria-pressed", on); root.querySelector(".seglist").classList.toggle("onlyvo", on); };
+  const save = async (sid, blob, mime, dur) => {
+    if (blob.size > 1.6e6) return toast("File dài quá, đọc ngắn lại hoặc chia đôi nha");
+    const data = await new Promise(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.readAsDataURL(blob); });
+    await put("vids", voKey(n, sid), {ep:String(n), seg:sid, v, mime, dur:Math.round(dur * 10) / 10, at:Date.now(), data});
+    toast("Đã gửi giọng Pum cho đoạn này");
+  };
+  root.querySelectorAll("[data-voup]").forEach(inp => inp.onchange = async () => { const f = inp.files[0]; if (!f) return; const p = await probeFile(f); await save(inp.dataset.voup, f, f.type || "audio/mp4", p.dur || 0); });
+  root.querySelectorAll("[data-rec]").forEach(b => b.onclick = async () => {
+    const sid = b.dataset.rec, box = root.querySelector(`#rec-${CSS.escape(sid)}`);
+    if (REC.mr && REC.mr.state === "recording"){ if (REC.sid === sid){ stopRec(); } else toast("Đang ghi đoạn khác, bấm Dừng trước nha"); return; }
+    const mime = voMime(); if (!mime || !navigator.mediaDevices) return toast("Trình duyệt này chưa ghi âm được, dùng nút Chọn file ghi âm nha");
+    let stream; try{ stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:true, autoGainControl:true}}); }catch(e){ return toast("Cần cho phép dùng micro để ghi âm"); }
+    Object.assign(REC, {mr:new MediaRecorder(stream, {mimeType:mime, audioBitsPerSecond:48000}), chunks:[], t0:Date.now(), sid, mime});
+    REC.mr.ondataavailable = ev => ev.data.size && REC.chunks.push(ev.data);
+    REC.mr.onstop = () => {
+      stream.getTracks().forEach(t => t.stop()); const dur = (Date.now() - REC.t0) / 1000;
+      const blob = new Blob(REC.chunks, {type:mime.split(";")[0]}); if (REC.url) URL.revokeObjectURL(REC.url); REC.url = URL.createObjectURL(blob);
+      b.innerHTML = IC.mic + "Thu lại"; b.classList.remove("on");
+      box.innerHTML = `<p class="small"><b>Nghe lại bản vừa thu (${dur.toFixed(1)} giây)</b></p><audio controls src="${REC.url}"></audio>
+        <div class="row" style="margin-top:8px"><button type="button" class="btn rose" data-vosend="1">Gửi bản này</button><button type="button" class="btn ghost" data-vodrop="1">Bỏ, thu lại</button></div>`;
+      box.querySelector("[data-vosend]").onclick = async ev => { ev.target.disabled = true; ev.target.textContent = "Đang gửi…"; await save(sid, blob, mime.split(";")[0], dur); };
+      box.querySelector("[data-vodrop]").onclick = () => { box.innerHTML = ""; };
+    };
+    REC.mr.start(500); b.innerHTML = IC.stop + "Dừng"; b.classList.add("on");
+    const tick = () => { box.innerHTML = `<p class="recon" role="status"><i></i>Đang ghi ${((Date.now() - REC.t0) / 1000).toFixed(0)} giây${TL && TL.segments.find(x => x.id === sid) && TL.segments.find(x => x.id === sid).voReq && TL.segments.find(x => x.id === sid).voReq.sec ? ` / khoảng ${Math.round(TL.segments.find(x => x.id === sid).voReq.sec)} giây` : ""}</p>`; };
+    tick(); REC.timer = setInterval(tick, 500);
+    setTimeout(() => { if (REC.sid === sid && REC.mr && REC.mr.state === "recording") stopRec(); }, 90000);
+  });
 }
 
 function stepPost(sb, sc, st, e){

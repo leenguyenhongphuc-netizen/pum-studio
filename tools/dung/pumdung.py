@@ -192,6 +192,20 @@ def cmd_place(ep, got, drive_id):
     sz = Path(t["dest"]).stat().st_size
     print("đã đặt", Path(t["dest"]).name, f"{sz/1e6:.1f} MB", "" if not t["size"] or sz == t["size"] else f"(KHÁC dung lượng gốc {t['size']})")
 
+def cmd_vo(ep):
+    """Lấy các đoạn Pum đã tự ghi âm lồng tiếng trong app (kho vids, mã v_<ep>_<đoạn>) về WORK/<ep>/vo/"""
+    import base64
+    d = wdir(ep) / "vo"; d.mkdir(parents=True, exist_ok=True); n = 0
+    for r in rows():
+        if r["col"] != "vids" or not r["id"].startswith(f"v_{ep}_"): continue
+        x = r["data"] or {}; sid = r["id"][len(f"v_{ep}_"):]
+        ext = "m4a" if "mp4" in (x.get("mime") or "") else "webm"
+        raw = d / f"{sid}.{ext}"; raw.write_bytes(base64.b64decode(x["data"]))
+        wav = d / f"{sid}.wav"
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-ac", "1", "-ar", "48000", str(wav)], check=True)
+        n += 1; print(f"  {sid}: {x.get('dur', 0):.1f}s, bản v{x.get('v')}, {time.strftime('%d/%m %H:%M', time.localtime(x.get('at', 0)/1000))} -> {wav}")
+    print(f"{n} đoạn lồng tiếng của Pum")
+
 def _audio_stats(path, dur):
     """độ lớn âm thanh mỗi 0,5 giây (dBFS)"""
     r = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-vn", "-ac", "1", "-ar", "8000", "-f", "s16le", "-"], capture_output=True)
@@ -297,6 +311,6 @@ def cmd_final(ep, ver, msg=""):
 if __name__ == "__main__":
     a = sys.argv[1:]
     if not a: print(__doc__); sys.exit()
-    {"fetch": lambda: cmd_fetch(a[1]), "drive": lambda: cmd_drive(a[1]), "place": lambda: cmd_place(a[1], a[2], a[3]), "match": lambda: cmd_match(a[1], a[2]), "scan": lambda: cmd_scan(a[1], *(a[2:3])),
+    {"fetch": lambda: cmd_fetch(a[1]), "drive": lambda: cmd_drive(a[1]), "vo": lambda: cmd_vo(a[1]), "place": lambda: cmd_place(a[1], a[2], a[3]), "match": lambda: cmd_match(a[1], a[2]), "scan": lambda: cmd_scan(a[1], *(a[2:3])),
      "sheet": lambda: cmd_sheet(a[1]), "push": lambda: cmd_push(a[1], a[2], a[3]), "status": lambda: cmd_status(a[1], a[2], " ".join(a[3:])),
      "board": lambda: cmd_board(a[1], a[2], " ".join(a[3:])), "draft": lambda: cmd_draft(a[1], a[2], " ".join(a[3:])), "final": lambda: cmd_final(a[1], a[2], " ".join(a[3:]))}[a[0]]()

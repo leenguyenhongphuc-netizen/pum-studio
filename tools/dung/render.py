@@ -262,7 +262,8 @@ def main():
     for i, sg in enumerate(segs):
         f, dur = seg_render(i, sg, clips, W, H, fx, tmp); files.append(f)
         tl.append({"id": sg.get("id", f"s{i+1}"), "label": sg.get("label", ""), "chapter": sg.get("chapter", ""), "start": round(t, 2), "end": round(t + dur, 2),
-                   "clip": sg.get("clip"), "in": sg["in"], "out": sg["out"], "kind": sg.get("kind", ""), "text": [x["text"] for x in sg.get("text", [])], "vo": bool(sg.get("vo"))})
+                   "clip": sg.get("clip"), "in": sg["in"], "out": sg["out"], "kind": sg.get("kind", ""), "text": [x["text"] for x in sg.get("text", [])], "vo": bool(sg.get("vo")),
+                   "voice": sg.get("voice", ""), "say": sg.get("say", ""), "voReq": sg.get("voReq")})
         subs += seg_subs(sg, scan, t); t += dur
         print(f"  đoạn {i+1}/{len(segs)} {sg.get('label','')[:40]} {dur:.1f}s")
     total = t
