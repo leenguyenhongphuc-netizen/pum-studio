@@ -92,14 +92,31 @@ def sfx_file(name):
     return p
 
 # ---------- chữ trên hình ----------
-def wrap(draw, text, font, maxw):
-    words = text.split(); lines = []; cur = ""
+def _greedy(draw, words, font, maxw):
+    lines = []; cur = ""
     for w in words:
         t = (cur + " " + w).strip()
         if draw.textlength(t, font=font) <= maxw or not cur: cur = t
         else: lines.append(cur); cur = w
     if cur: lines.append(cur)
     return lines
+
+def wrap(draw, text, font, maxw):
+    """Xuống dòng cân: giữ số dòng tối thiểu nhưng chia đều để không còn một chữ lẻ ở dòng cuối. Hỗ trợ \\n ép xuống dòng."""
+    out = []
+    for para in text.split("\n"):
+        words = para.split()
+        if not words: continue
+        lines = _greedy(draw, words, font, maxw); n = len(lines)
+        if n > 1:
+            lo, hi = 0.0, float(maxw)
+            for _ in range(18):
+                mid = (lo + hi) / 2
+                if len(_greedy(draw, words, font, mid)) <= n: hi = mid
+                else: lo = mid
+            lines = _greedy(draw, words, font, hi)
+        out += lines
+    return out
 
 def card(text, style, W, H, fx):
     """Trả về ảnh RGBA cỡ W×H có đúng một mảng chữ theo kiểu thương hiệu."""
@@ -219,7 +236,8 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
     else:
         g = {"src": 1.0, "low": 0.28, "amb": 0.45}.get(mode, 1.0) * vol
         at = f",atempo={sp}" if sp != 1 and 0.5 <= sp <= 2 else ""
-        fc.append(f"[0:a]aresample={SR},aformat=channel_layouts=stereo{at},volume={g:.3f},afade=t=in:d=0.06,afade=t=out:st={max(0,dur-0.08):.3f}:d=0.08[a0]")
+        fd = float(sg.get("fade", 0.06))
+        fc.append(f"[0:a]aresample={SR},aformat=channel_layouts=stereo{at},volume={g:.3f},afade=t=in:d={fd:.3f},afade=t=out:st={max(0,dur-fd-0.02):.3f}:d={fd+0.02:.3f}[a0]")
     alast = "a0"
     vo = sg.get("vo")
     if vo:
@@ -297,7 +315,7 @@ def main():
         p = sfx_file(s["name"]); ain += ["-i", str(p)]
         ms = int(float(s["at"]) * 1000)
         a_fc.append(f"[{ai}:a]aresample={SR},aformat=channel_layouts=stereo,volume={float(s.get('vol',0.5)):.2f},adelay={ms}|{ms}[f{ai}]"); sfx.append(f"[f{ai}]"); ai += 1
-    a_fc.append("[0:a]asplit=2[dia][key]")
+    a_fc.append(f"[0:a]apad,atrim=0:{total:.2f},asplit=2[dia][key]")
     mix = ["[dia]"]
     if mus:
         a_fc.append(f"{''.join(mus)}amix=inputs={len(mus)}:normalize=0:duration=longest,apad,atrim=0:{total:.2f}[mus]")
