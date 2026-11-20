@@ -142,11 +142,28 @@ def _greedy(draw, words, font, maxw):
     if cur: lines.append(cur)
     return lines
 
+def soft_hide(src, out, tag, bx, by, bw, bh, fw, fh, s0, s1):
+    """Làm mờ mềm một ô (biển số, mặt người lạ): mờ Gauss trên vùng nới rộng, viền mờ dần nên không thành mảng phẳng."""
+    m = max(8, min(bw, bh) // 3) // 2 * 2
+    ex, ey = max(0, bx - m), max(0, by - m); ex2, ey2 = min(fw, bx + bw + m), min(fh, by + bh + m)
+    ew, eh = (ex2 - ex) // 2 * 2, (ey2 - ey) // 2 * 2
+    ix0, iy0, ix1, iy1 = bx - ex, by - ey, bx - ex + bw, by - ey + bh
+    sig = max(6, max(bw, bh) / 10)
+    al = f"255*clip(1-hypot(max(max({ix0}-X\\,X-{ix1})\\,0)\\,max(max({iy0}-Y\\,Y-{iy1})\\,0))/{m}\\,0\\,1)"
+    return (f"[{src}]format=yuv420p,split[{tag}a][{tag}b];[{tag}b]crop={ew}:{eh}:{ex}:{ey},gblur=sigma={sig:.1f}:steps=3,split[{tag}c][{tag}d];"
+            f"[{tag}d]extractplanes=y,geq=lum={al}[{tag}m];[{tag}c]format=yuva420p[{tag}e];[{tag}e][{tag}m]alphamerge[{tag}f];"
+            f"[{tag}a][{tag}f]overlay={ex}:{ey}:enable='between(t,{s0:.2f},{s1:.2f})'[{out}]")
+KEEP_TOGETHER = {x.lower() for x in "Buôn Ma Thuột|Buôn Mê|Ea Kao|đồng bào|mọi người|hoàng hôn|cố gắng|cà phê|nhà dài|nhà sàn|Akô Dhông|Trần Nhật Duật|Hồ Tùng Mậu|Bà Già|bánh canh|Mì Hường|hoành thánh|người Nhật|lên farm|trang trại|phụ nữ|đàn ông|tre nứa|ba chỉ|ca cao|lá chè|tự pha|quả chín|chín đỏ|hồ Ea Kao|đi tìm".split("|")}
 def wrap(draw, text, font, maxw):
     """Xuống dòng cân: giữ số dòng tối thiểu nhưng chia đều để không còn một chữ lẻ ở dòng cuối. Hỗ trợ \\n ép xuống dòng."""
     out = []
     for para in text.split("\n"):
-        words = para.split()
+        words = para.split(); k = 0  # không xuống dòng giữa tên riêng, từ ghép ("Buôn Ma Thuột", "hoàng hôn")
+        while k < len(words):
+            for n_ in (3, 2):
+                if k + n_ <= len(words) and " ".join(w.strip(",.!?:…").lower() for w in words[k:k + n_]) in KEEP_TOGETHER:
+                    words[k:k + n_] = [" ".join(words[k:k + n_])]; break
+            k += 1
         if not words: continue
         lines = _greedy(draw, words, font, maxw); n = len(lines)
         if n > 1:
@@ -481,8 +498,9 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
     if H > W and fit == "fill" and vw > vh:
         # khung dọc từ cảnh ngang: cửa sổ 9:16 đặt theo mặt Pum; vùng "crop" (bỏ người đi cùng) thành giới hạn cửa sổ
         vkeys = vtrack(src, a, b, vw, vh, sg)
+        if sg.get("hflip"): vkeys = [(t_, 1 - c_) for t_, c_ in vkeys]  # tâm đo trên hình chưa lật
         vf.append(vfit(vkeys, W, H))
-        vchain = lambda ta: vfit([(0.0, c_at(vkeys, ta + 0.3 - a))], W, H)  # khung tĩnh đúng lúc ta (cho dò mặt 1 khung)
+        vchain = lambda ta: ("hflip," if sg.get("hflip") else "") + vfit([(0.0, c_at(vkeys, ta + 0.3 - a))], W, H)  # khung tĩnh đúng lúc ta (cho dò mặt 1 khung)
     elif sg.get("crop"):  # cắt khung (bỏ mép có người đi cùng): [x, y, w, h] tỉ lệ 0..1 của khung gốc
         cx, cy, cw, ch_ = [float(v) for v in sg["crop"]]
         pre = f"crop=trunc(iw*{cw}/2)*2:trunc(ih*{ch_}/2)*2:trunc(iw*{cx}):trunc(ih*{cy}),"
@@ -507,7 +525,10 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         x, y, w, hh = h["box"]; bx, by = int(x * vw) // 2 * 2, int(y * vh) // 2 * 2
         bw, bh = max(16, int(w * vw) // 2 * 2), max(16, int(hh * vh) // 2 * 2)
         s0, s1 = float(h.get("start", 0)), float(h.get("end", 1e6))
-        pre_fc.append(f"[{src0}]split[q{j}a][q{j}b];[q{j}b]crop={bw}:{bh}:{bx}:{by},boxblur=luma_radius=min(w\\,h)/4:luma_power=3[q{j}c];[q{j}a][q{j}c]overlay={bx}:{by}:enable='between(t,{s0:.2f},{s1:.2f})'[q{j}]"); src0 = f"q{j}"
+        pre_fc.append(soft_hide(src0, f"q{j}", f"q{j}", bx, by, bw, bh, vw, vh, s0, s1)); src0 = f"q{j}"
+    if sg.get("hflip"):
+        vf.insert(0, "hflip")
+        if not (H > W and fit == "fill" and vw > vh): pre = "hflip," + pre
     fc = pre_fc + [f"[{src0}]{','.join(vf)}[v0]"]; last = "v0"; k = 1
     tboxes = []  # (bắt đầu, kết thúc, hộp chữ) để doodle né
     # che người đi cùng, biển số xe: "hide":[{"box":[x,y,w,h] (tỉ lệ 0..1 của khung ra), "start":giây, "end":giây}]
@@ -515,7 +536,7 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         x, y, w, hh = h["box"]; bx, by = int(x * W) // 2 * 2, int(y * H) // 2 * 2
         bw, bh = max(16, int(w * W) // 2 * 2), max(16, int(hh * H) // 2 * 2)
         s0, s1 = float(h.get("start", 0)), float(h.get("end", dur))
-        fc.append(f"[{last}]split[h{j}a][h{j}b];[h{j}b]crop={bw}:{bh}:{bx}:{by},boxblur=luma_radius=min(w\\,h)/5:luma_power=3[h{j}c];[h{j}a][h{j}c]overlay={bx}:{by}:enable='between(t,{s0:.2f},{s1:.2f})'[h{j}]"); last = f"h{j}"
+        fc.append(soft_hide(last, f"h{j}", f"h{j}", bx, by, bw, bh, W, H, s0, s1)); last = f"h{j}"
     T_ = sg.get("text", [])
     cims = [card(t["text"], t.get("style", "tape"), W, H, fx, t.get("pos")) for t in T_]
     if H > W and fit == "fill" and vw > vh:  # khung dọc: đặt chữ né mặt Pum; băng chữ được ưu tiên chỗ trước nhãn
@@ -586,7 +607,7 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
     # lọc ồn (arnndn + afftdn) làm tiếng trễ ~32 ms: đã bù bằng atrim ở trên.
     # hình (không tiếng) và tiếng (PCM, đúng số mẫu) ghi riêng: ghép AAC nhiều đoạn làm tiếng trễ dần ~0,03 s mỗi chỗ nối
     sh(["ffmpeg", "-y", "-v", "error", *inputs, "-filter_complex", ";".join(fc),
-        "-map", "[vfin]", "-frames:v", str(NF), "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "15", "-pix_fmt", "yuv420p", "-r", str(FPS), str(out),
+        "-map", "[vfin]", "-frames:v", str(NF), "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", os.environ.get("PUM_SEG_CRF", "15"), "-pix_fmt", "yuv420p", "-r", str(FPS), str(out),
         "-map", "[aout]", "-vn", "-c:a", "pcm_s16le", "-ar", str(SR), "-ac", "2", str(outa)])
     return out, dur
 
@@ -646,7 +667,7 @@ def main():
         if not tr or i == 0: continue
         wf = REPO / "fx" / ("youtube" if W > H else "tiktok") / f"chuyen_canh_{tr}.webm"
         if not wf.exists(): continue
-        at = max(0, tl[i]["start"] - 0.55)  # chuyển cảnh 0,8 s, xong 0,25 s sau chỗ nối: không đè lúc Pum bắt đầu nói
+        at = max(0, tl[i]["start"] - 0.8)  # chuyển cảnh 0,8 s, xong 0,25 s sau chỗ nối: không đè lúc Pum bắt đầu nói
         vin += ["-itsoffset", f"{at:.3f}", "-c:v", "libvpx-vp9", "-i", str(wf)]
         fc.append(f"[{k}:v]scale={W}:{H},format=rgba,setpts=(PTS-STARTPTS)/1.25+{at:.3f}/TB[tr{k}]"); fc.append(f"[{last}][tr{k}]overlay=0:0:eof_action=pass[x{k}]"); last = f"x{k}"; k += 1
     assp = str(tmp / "subs.ass").replace(":", "\\:")

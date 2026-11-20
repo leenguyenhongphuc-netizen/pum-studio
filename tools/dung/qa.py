@@ -33,7 +33,7 @@ def main():
            "subs": len(tl.get("subs", [])), "sheet_every_s": step,
            "placeholder_text": [t for s in segs for t in s.get("text", []) if "___" in t or "[" in t]}
     ok = []
-    ok.append(("kích thước", (v["width"], v["height"]) in ((1920, 1080), (1080, 1920)) or "proxy" in f.name))  # ngang YouTube hoặc dọc TikTok
+    ok.append(("kích thước", (v["width"], v["height"]) in ((1920, 1080), (1080, 1920), (3840, 2160)) or "proxy" in f.name))  # ngang YouTube hoặc dọc TikTok
     ok.append(("độ lớn -15..-13 LUFS", -15.5 <= I <= -12.5)); ok.append(("đỉnh <= -1 dBTP", TP <= -0.9))
     ok.append(("không khung đen lạ", not blacks)); ok.append(("không lặng > 2s", not sil))
     ok.append(("không chữ còn ___ hay [ ]", not rep["placeholder_text"])); ok.append(("khớp thời lượng", abs(dur - tl["dur"]) < 1.0))
