@@ -14,8 +14,10 @@ FOOD = ("Tô bánh canh", "Cận tô", "Cận mâm", "Hết sườn vì dậy tr
         "Thịt ba chỉ nướng (cảnh chèn)", "Rang hạt", "Rót nước", "Hạt cũng cần nghỉ (cảnh chèn)")
 
 
-NOBLUR = ("Kịp rồi", "Mây giống gì", "Mây khủng long", "Câu hỏi cuối")  # cảnh trời, cây: máy hay nhận nhầm bóng cây thành mặt
+NOBLUR = ("Kịp rồi", "Mây giống gì", "Mây khủng long", "Câu hỏi cuối", "Hai cầu thang")  # cảnh trời, cây: máy hay nhận nhầm bóng cây thành mặt
 NOPLATE = ("Địa chỉ",)  # biển số nhà của quán: cần hiện để người xem tìm đường
+# clip không có xe (trong nhà, vườn cà phê, mâm cơm, hồ): không dò biển số, tránh che nhầm quả cà phê, mũ, cầu thang
+NOPLATE_CLIPS = {"1C_89CkFl-ZSaNQQCd4kENSv8lgvVMtF2"} | set(["icl_temp_video_1794890108162", "1Losgyc4XxEKvP3EwHhW9t6_kTRLeHysn", "1WMudihKfulerrgYAcEfsRmZXVSJwym_j", "icl_temp_video_1794890056606", "icl_temp_video_1794890126055", "icl_temp_video_1794889918579", "1xpb4EK2N-QNus19BSGnDC6hr2ga8X6Su", "1JUO5zVD2RNAuLHwAYjg74RvvZkzexvDU", "1C1QsVROlulpF-F7jJ_te5KCXc3SeUHng", "15bz4LZRjyhlZ-NJfY_XTHBC_d7A1tHG7", "icl_temp_video_1794898128874", "icl_temp_video_1794898430024", "1LskR0B-h9A9uDrsxqnk_6B9KTVtnWH_h", "1gCtaJiANVWCj1QQB0cjWrqRiSZO_C_dv", "1o3GdRTiYU5PhmR-8eLqbZszudln8iqRw", "1ic366Tpw7wgLdKRP-NC_0m3rEhRjg1aB", "1P8MH1d6MS1p2kONxwLptqtPG67Z8QKhY", "1w1hhiMRz_jjHw-B55REthObU89VBHdMn", "133745vL6OJ1NmCEZHh2J5gLdESIZPe8d", "icl_temp_video_1794904346544", "1J37JAjvx1xWMjDXmQ07xmInNse9UZ70-", "1fyvpDrtPbqNbIJS3eDXfH3-yp5Z3Pka4", "icl_temp_video_1794904724404", "1Y-NTM0jHlUhlMQL7lmX61UUXQTy85nMX", "1sqz-7JLV8divvZqPBlCJAhz2g3Yw4jU0", "1We7z4Vr7wsulBD5-IbrwssYz0z6GDK8m", "icl_temp_video_1794889748306", "1ccP20gi4A7MSLvlEZLI9yd62dA4vxGON", "1WGki6opswU-eTjBzMBvRVftlqo33YBIA", "1FVy6VPoCWQn1WiyDQHmkpJX-TQ1Wcala", "14T2zSXOH0tNTBaF7jjYBTHMXkAX-upxt", "1BmdrEJ4Z4q6gPscJshdFjOs3ks931QXL", "icl_temp_video_1794914469714", "1GKt9KtBjSF2IilZ0itAb9DwgegNJi8Lb", "1P0c1Lq38KL1oDs3YzmLE4cH1rSquz0eG", "1ui6vuKJyMW4M3izouGYg2eCnDSk1UJRM", "1XWcdK9xUrFDLGeveD41fL1sGk6FGGFQJ", "1K6ejPA2tYmMlLQlXPJpifY3U8tG1r6gH", "1v2uEBNg_hAoM7tFtohzVancJZV5Xksgy", "1ikUC7tlrxRox2h6cE4VQWbC2l-1yPu7z", "1w9dNl01xn7DgNXFujS4t3OfcBREE9c6q", "1cOWatXlNz0eGaNXRsbTpfIy_kiffg0wd", "1ZGkgh4tD9WNf0H6g_B7nq6cN2srUslRs", "icl_temp_video_1794915069252", "icl_temp_video_1794914651898", "1yLnUP9JTatrw9QIYnkx2plVDNwdspaWr"])
 from platefilt import plate_like
 def noblur(sg): return sg["label"].startswith(NOBLUR + ("Phía sau nhà",)) or str(sg.get("clip", "")).startswith("1Y-NTM")
 
@@ -48,9 +50,9 @@ def worker(job):
         keep = cv2.dnn.NMSBoxes(bx.tolist(), sc.tolist(), conf, 0.45)
         return [bx[i] for i in np.array(keep).flatten()]
 
-    def blur_box(img, x, y, bw, bh, pad=0.3, ellipse=True):
-        Hh, Ww = img.shape[:2]
-        x0 = int(max(0, x - bw * pad)); y0 = int(max(0, y - bh * pad)); x1 = int(min(Ww, x + bw * (1 + pad))); y1 = int(min(Hh, y + bh * (1 + pad)))
+    def blur_box(img, x, y, bw, bh, pad=0.3, ellipse=True, pady=None):
+        Hh, Ww = img.shape[:2]; pady = pad if pady is None else pady
+        x0 = int(max(0, x - bw * pad)); y0 = int(max(0, y - bh * pady)); x1 = int(min(Ww, x + bw * (1 + pad))); y1 = int(min(Hh, y + bh * (1 + pady)))
         if x1 - x0 < 4 or y1 - y0 < 4: return
         roi = img[y0:y1, x0:x1]
         small = cv2.resize(roi, (max(1, (x1 - x0) // 14), max(1, (y1 - y0) // 14)), interpolation=cv2.INTER_AREA)
@@ -85,7 +87,7 @@ def worker(job):
                     if r[2] >= 36:
                         e = rec.feature(rec.alignCrop(img, r)).flatten(); e /= np.linalg.norm(e) + 1e-9; sim = float((REF @ e).max())
                     dets.append([n, float(r[0]), float(r[1]), float(r[2]), float(r[3]), sim, float(r[14])])
-                if n % 4 == 0 and not sg["label"].startswith(NOPLATE):
+                if n % 2 == 0 and sg["clip"] not in NOPLATE_CLIPS:
                     # cả khung + 6 ô phóng to (biển nhỏ, biển 2 dòng gần vuông); lọc màu để bỏ quả cà phê, mép bàn, lá
                     cand = list(plates(img, 0.3))
                     for ox, oy in ((0, 0), (W // 2 - 200, 0), (W // 2, 0), (0, H // 2 - 120), (W // 2 - 200, H // 2 - 120), (W // 2, H // 2 - 120)):
@@ -137,7 +139,9 @@ def worker(job):
     ptr = []
     for p_ in sorted(pls):
         k0, x0, y0, bw, bh = p_
-        if any(px - pw * 1.3 < x0 + bw / 2 < px + pw * 2.3 and y0 > py for px, py, pw, ph in pumbox.get(k0, [])): continue
+        pb = max(pumbox.get(k0, []), key=lambda q: q[2], default=None)  # chỉ mặt Pum lớn nhất trong khung
+        if os.environ.get("PREP_DEBUG") and 70 <= k0 <= 86: print("PL", k0, [int(v) for v in (x0, y0, bw, bh)], "pb", None if pb is None else [int(v) for v in pb], flush=True)
+        if pb and pb[0] - pb[2] * 0.6 < x0 + bw / 2 < pb[0] + pb[2] * 1.6 and pb[1] + pb[3] * 0.5 < y0 < pb[1] + pb[3] * 4: continue  # trên người Pum (vòng cổ, chữ áo)
         t_ = next((t for t in ptr if 0 < k0 - t[-1][0] <= 16 and abs(x0 + bw / 2 - t[-1][1] - t[-1][3] / 2) < 1.2 * max(bw, t[-1][3]) + 20
                    and abs(y0 + bh / 2 - t[-1][2] - t[-1][4] / 2) < 1.2 * max(bh, t[-1][4]) + 20), None)
         (t_.append(p_) if t_ else ptr.append([p_]))
@@ -145,7 +149,7 @@ def worker(job):
         for d0, d1 in zip(t, t[1:] + [t[-1]]):
             for k in range(d0[0], max(d0[0] + 4, d1[0] + 1)):
                 u = min(1.0, (k - d0[0]) / max(1, d1[0] - d0[0])); fblur.setdefault(k, []).append(("plate", [d0[i] + (d1[i] - d0[i]) * u for i in (1, 2, 3, 4)]))
-        for k in list(range(t[0][0] - 8, t[0][0])) + list(range(t[-1][0] + 1, t[-1][0] + 9)):
+        for k in list(range(t[0][0] - 15, t[0][0])) + list(range(t[-1][0] + 1, t[-1][0] + 16)):
             fblur.setdefault(k, []).append(("plate", list(t[0][1:5] if k < t[0][0] else t[-1][1:5])))
     # ---- lượt 2: làm đẹp + che ----
     rd = reader()
@@ -159,7 +163,7 @@ def worker(job):
         out_img = B.apply(img)
         if B.prev is not None: st["pum"] += 1
         for kind, (x, y, bw, bh) in fblur.get(n, []):
-            blur_box(out_img, x, y, bw, bh, pad=0.4 if kind == "plate" else 0.35, ellipse=kind == "face")
+            blur_box(out_img, x, y, bw, bh, pad=0.2 if kind == "plate" else 0.35, ellipse=kind == "face", pady=0.45 if kind == "plate" else None)
         st["stranger"] += any(k_ == "face" for k_, _ in fblur.get(n, [])); st["plate"] += any(k_ == "plate" for k_, _ in fblur.get(n, []))
         wr.stdin.write(out_img.tobytes()); n += 1
     wr.stdin.close(); wr.wait(); rd.wait(); st["frames"] = n

@@ -181,7 +181,7 @@ def card(text, style, W, H, fx, where=None):
     if st == "tape":
         f = F(fx["inter"], int(84 * S)); lines = wrap(d0, text, f, W * 0.66)
         b = block(lines, f, (int(42 * S), int(20 * S)), COL["tape"], COL["cocoa"], int(8 * S), 2)
-        pos = (int(W * 0.06), int(H * 0.10))
+        pos = (int(W * 0.06), int(H * 0.10)) if where != "tr" else (int(W * 0.94) - b.width + 40, int(H * 0.08))
     elif st == "postcard":
         f = F(fx["play"], int(64 * S), 700); lines = wrap(d0, text, f, W * 0.55)
         b = block(lines, f, (int(36 * S), int(22 * S)), COL["paper"], COL["cocoa"], int(10 * S), -3)
@@ -264,7 +264,7 @@ def face_box(src, t, W, H, pre=""):
     except Exception:
         return None
 
-def doodle_pos(face, W, H, size, j, has_text, used=()):
+def doodle_pos(face, W, H, size, j, has_text, used=(), boxes=()):
     """chọn chỗ đặt doodle: không đè mặt (nới 25%), không đè băng chữ góc trái trên, không xuống vùng phụ đề;
     ưu tiên chỗ xa mặt vừa phải, đổi bên giữa các doodle trong cùng cảnh"""
     C = [(0.80, 0.09), (0.62, 0.08), (0.84, 0.36), (0.05, 0.38), (0.06, 0.10), (0.30, 0.08), (0.70, 0.50), (0.12, 0.52)]
@@ -274,6 +274,7 @@ def doodle_pos(face, W, H, size, j, has_text, used=()):
         if has_text and cx < 0.5 and cy < 0.32: continue
         if y + size > H * 0.70: continue
         if any(abs(x - ux) < size * 0.9 and abs(y - uy) < size * 0.9 for ux, uy in used): continue
+        if any(x < bx1 + 20 and x + size > bx0 - 20 and y < by1 + 20 and y + size > by0 - 20 for bx0, by0, bx1, by1 in boxes): continue  # không chạm chữ
         if face:
             fx_, fy_, fw, fh = face; ex, ey = fw * 0.25, fh * 0.25
             ox = max(0, min(x + size, fx_ + fw + ex) - max(x, fx_ - ex)); oy = max(0, min(y + size, fy_ + fh + ey) - max(y, fy_ - ey))
@@ -285,6 +286,32 @@ def doodle_pos(face, W, H, size, j, has_text, used=()):
         if best is None or sc > best[0]: best = (sc, x, y)
     if best is None: return int(W * 0.80), int(H * 0.09)
     return int(best[1]), int(best[2])
+
+SEG_VER = "s1"
+DOODLE_VER = "d2"  # đổi khi sửa cách đặt/vẽ doodle: chỉ dựng lại các đoạn có doodle  # đổi khi sửa cách dựng một đoạn (seg_render, doodle, chữ) để không dùng lại bản cũ
+
+def seg_key(sg, clips):
+    """khoá nội dung của một đoạn đã dựng: json đoạn + file nguồn (inode, cỡ, giờ sửa) + mã của render.py/doodle.py"""
+    src = sg.get("path") or clips[sg["clip"]]["path"]; st = os.stat(src)
+    return hashlib.sha1(json.dumps(sg, sort_keys=True, ensure_ascii=False).encode() + f"{st.st_ino}:{st.st_size}:{st.st_mtime}".encode() + SEG_VER.encode() + (DOODLE_VER.encode() if sg.get("doodles") else b"")).hexdigest()[:16]
+
+def seg_cached(i, sg, clips, W, H, fx, tmp, d):
+    """dựng lại chỉ những đoạn đổi; đoạn không đổi lấy từ kho segcache (hardlink)"""
+    C = d / "segcache"; C.mkdir(exist_ok=True); k = seg_key(sg, clips)
+    out = tmp / f"seg{i:03d}.mp4"; outa = tmp / f"seg{i:03d}.wav"
+    if (C / f"{k}.mp4").exists() and (C / f"{k}.wav").exists():
+        for x, y in ((C / f"{k}.mp4", out), (C / f"{k}.wav", outa)):
+            if y.exists(): y.unlink()
+            os.link(x, y)
+        NF = max(1, int(round((float(sg["out"]) - float(sg["in"])) / float(sg.get("speed", 1)) * FPS)))
+        return out, NF / FPS
+    for y in (out, outa):
+        if y.exists(): y.unlink()  # file cũ có thể là hardlink vào kho: không ghi đè lên nó
+    f, dur = seg_render(i, sg, clips, W, H, fx, tmp)
+    for x, y in ((out, C / f"{k}.mp4"), (outa, C / f"{k}.wav")):
+        if y.exists(): y.unlink()
+        os.link(x, y)
+    return f, dur
 
 def seg_render(i, sg, clips, W, H, fx, tmp):
     src = sg.get("path") or clips[sg["clip"]]["path"]; info = clips.get(sg.get("clip"), {})
@@ -312,6 +339,7 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
     if sg.get("bright"): vf.insert(-1, f"eq=brightness={float(sg['bright']):.2f}")
     inputs = ["-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-i", src]
     fc = [f"[0:v]{','.join(vf)}[v0]"]; last = "v0"; k = 1
+    tboxes = []  # (bắt đầu, kết thúc, hộp chữ) để doodle né
     # che người đi cùng, biển số xe: "hide":[{"box":[x,y,w,h] (tỉ lệ 0..1 của khung ra), "start":giây, "end":giây}]
     for j, h in enumerate(sg.get("hide", [])):
         x, y, w, hh = h["box"]; bx, by = int(x * W) // 2 * 2, int(y * H) // 2 * 2
@@ -319,7 +347,8 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         s0, s1 = float(h.get("start", 0)), float(h.get("end", dur))
         fc.append(f"[{last}]split[h{j}a][h{j}b];[h{j}b]crop={bw}:{bh}:{bx}:{by},boxblur=luma_radius=min(w\\,h)/5:luma_power=3[h{j}c];[h{j}a][h{j}c]overlay={bx}:{by}:enable='between(t,{s0:.2f},{s1:.2f})'[h{j}]"); last = f"h{j}"
     for j, t in enumerate(sg.get("text", [])):
-        png = tmp / f"t{i}_{j}.png"; card(t["text"], t.get("style", "tape"), W, H, fx, t.get("pos")).save(png)
+        png = tmp / f"t{i}_{j}.png"; cim = card(t["text"], t.get("style", "tape"), W, H, fx, t.get("pos")); cim.save(png)
+        tboxes.append((float(t.get("start", 0)), float(t.get("end", dur)), cim.getbbox() or (0, 0, 0, 0)))
         inputs += ["-loop", "1", "-t", f"{dur:.3f}", "-i", str(png)]
         s0, s1 = float(t.get("start", 0)), float(t.get("end", dur))
         # chữ nối từ đoạn trước / sang đoạn sau (cont_in/cont_out): không hiện lại, không nảy, không mờ đi ở chỗ nối
@@ -339,7 +368,8 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
             face = (min(f_[0] for f_ in fs), min(f_[1] for f_ in fs), max(f_[0] + f_[2] for f_ in fs) - min(f_[0] for f_ in fs),
                     max(f_[1] + f_[3] for f_ in fs) - min(f_[1] for f_ in fs)) if fs else None
             txt_on = any(float(t.get("start", 0)) < s1 and float(t.get("end", dur)) > s0 and t.get("style") in ("tape", "label") or t.get("pos") == "top" for t in sg.get("text", []))
-            x, y = doodle_pos(face, W, H, size, j, txt_on, used); used.append((x, y))
+            bx_ = [b_ for t0_, t1_, b_ in tboxes if t0_ < s1 and t1_ > s0]
+            x, y = doodle_pos(face, W, H, size, j, txt_on, used, bx_); used.append((x, y))
             frames, C = _anim(dd["kind"], size, s1 - s0)
             for q, im in enumerate(frames): im.save(tmp / f"d{i}_{j}_{q:03d}.png")
             ox, oy = x - (C - size) // 2, y - (C - size) // 2
@@ -411,7 +441,7 @@ def main():
     scan = json.loads((d / "scan.json").read_text()) if (d / "scan.json").exists() else {}
     segs = E["segments"]; files = []; tl = []; subs = []; t = 0.0; nom = []; tn = 0.0
     for i, sg in enumerate(segs):
-        f, dur = seg_render(i, sg, clips, W, H, fx, tmp); files.append(f)
+        f, dur = seg_cached(i, sg, clips, W, H, fx, tmp, d); files.append(f)
         nom.append((tn, t)); tn += (float(sg["out"]) - float(sg["in"])) / float(sg.get("speed", 1))
         tl.append({"id": sg.get("id", f"s{i+1}"), "label": sg.get("label", ""), "chapter": sg.get("chapter", ""), "start": round(t, 2), "end": round(t + dur, 2),
                    "clip": sg.get("clip"), "in": sg["in"], "out": sg["out"], "kind": sg.get("kind", ""), "text": [x["text"] for x in sg.get("text", [])], "vo": bool(sg.get("vo")),
