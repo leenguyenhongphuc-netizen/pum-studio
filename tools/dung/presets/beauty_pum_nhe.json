@@ -29,8 +29,9 @@
   "cheek": 0.0
  },
  "body": {
-  "waist": 0.03,
-  "arms": 0.024
+  "waist": 0.0,
+  "arms": 0.0
  },
- "smooth_landmarks": 0.75
+ "smooth_landmarks": 0.75,
+ "_note_body": "20/11/2026: tắt chỉnh dáng (eo, tay). Điểm dáng người nhảy theo từng khung làm người bị bóp bóp, giật; anh Phúc góp ý chưa cải thiện nên bỏ hẳn."
 }

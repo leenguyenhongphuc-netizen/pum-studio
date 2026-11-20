@@ -161,7 +161,8 @@ def wrap(draw, text, font, maxw):
 
 def card(text, style, W, H, fx, where=None):
     """Trả về ảnh RGBA cỡ W×H có đúng một mảng chữ theo kiểu thương hiệu."""
-    S = W / 1920
+    V = H > W  # khung dọc 9:16 (TikTok): chữ to theo bề ngang 1080, đặt trong vùng an toàn của app
+    S = W / 1080 if V else W / 1920
     im = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d0 = ImageDraw.Draw(im)
     def block(lines, font, pad, bg, fg, radius, angle, stroke=0, sc=None, lh=1.18):
         asc, desc = font.getmetrics(); lhpx = int((asc + desc) * lh)
@@ -178,18 +179,23 @@ def card(text, style, W, H, fx, where=None):
             d.text((x, y), l, font=font, fill=fg, stroke_width=stroke, stroke_fill=sc); y += lhpx
         return b.rotate(angle, resample=Image.BICUBIC, expand=True)
     st = style
+    def vbreak(t_, f_, maxw):
+        if V and "\n" not in t_ and " · " in t_ and d0.textlength(t_, font=f_) > maxw: return t_.replace(" · ", " ·\n", 1)
+        return t_
     if st == "tape":
-        f = F(fx["inter"], int(84 * S)); lines = wrap(d0, text, f, W * 0.66)
+        f = F(fx["inter"], int((78 if V else 84) * S)); lines = wrap(d0, vbreak(text, f, W * 0.84), f, W * (0.84 if V else 0.66))
         b = block(lines, f, (int(42 * S), int(20 * S)), COL["tape"], COL["cocoa"], int(8 * S), 2)
-        pos = (int(W * 0.06), int(H * 0.10)) if where != "tr" else (int(W * 0.94) - b.width + 40, int(H * 0.08))
+        if V: pos = (int(W * 0.06), int(H * 0.115))
+        else: pos = (int(W * 0.06), int(H * 0.10)) if where != "tr" else (int(W * 0.94) - b.width + 40, int(H * 0.08))
     elif st == "postcard":
-        f = F(fx["play"], int(64 * S), 700); lines = wrap(d0, text, f, W * 0.55)
+        f = F(fx["play"], int(64 * S), 700); lines = wrap(d0, vbreak(text, f, W * 0.8), f, W * (0.8 if V else 0.55))
         b = block(lines, f, (int(36 * S), int(22 * S)), COL["paper"], COL["cocoa"], int(10 * S), -3)
-        pos = (int(W * 0.06), int(H * 0.70) - (len(lines) - 1) * int(60 * S)) if where != "top" else (int(W * 0.06), int(H * 0.10))
+        if V: pos = (int(W * 0.06), int(H * 0.20))
+        else: pos = (int(W * 0.06), int(H * 0.70) - (len(lines) - 1) * int(60 * S)) if where != "top" else (int(W * 0.06), int(H * 0.10))
     elif st == "label":
-        f = F(fx["nunito"], int(60 * S), 900); lines = [text.upper()]
+        f = F(fx["nunito"], int((52 if V else 60) * S), 900); lines = wrap(d0, vbreak(text.upper(), f, W * 0.86), f, W * 0.86) if V else [text.upper()]
         b = block(lines, f, (int(34 * S), int(13 * S)), COL["tape"], COL["cocoa"], int(40 * S), 0)
-        pos = (int(W * 0.06), int(H * 0.08))
+        pos = (int(W * 0.06), int(H * (0.085 if V else 0.08)))
     elif st == "price":
         f = F(fx["nunito"], int(46 * S), 900); lines = [text]
         b = block(lines, f, (int(30 * S), int(12 * S)), COL["white"], COL["berry"], int(40 * S), -2)
@@ -199,14 +205,16 @@ def card(text, style, W, H, fx, where=None):
         b = block(lines, f, (0, 0), None, COL["white"], 0, 0, stroke=int(8 * S), sc=COL["cocoa"], lh=1.05)
         pos = ((W - b.width) // 2, (H - b.height) // 2)
     elif st == "question":
-        f = F(fx["nunito"], int(60 * S), 900); lines = wrap(d0, text, f, W * 0.55)
+        f = F(fx["nunito"], int(60 * S), 900); lines = wrap(d0, text, f, W * (0.62 if V else 0.55))
         b = block(lines, f, (int(44 * S), int(30 * S)), COL["white"], COL["berry"], int(28 * S), 0)
-        pos = ((W - b.width) // 2 - int(90 * S), int(H * 0.62) - b.height // 2)
+        qy = 0.40 if V else 0.62
+        pos = ((W - b.width) // 2 - int(90 * S), int(H * qy) - b.height // 2)
         mini = REPO / "brand" / "hello.png"
         if mini.exists():
             m = Image.open(mini).convert("RGBA"); mh = int(330 * S); m = m.resize((int(m.width * mh / m.height), mh))
-            im.alpha_composite(m, (min(W - m.width - int(40 * S), pos[0] + b.width - int(30 * S)), int(H * 0.62) - mh // 2))
+            im.alpha_composite(m, (min(W - m.width - int(40 * S), pos[0] + b.width - int(30 * S)), int(H * qy) - mh // 2 + (int(mh * 0.75) if V else 0)))
     else: raise SystemExit("kiểu chữ lạ: " + st)
+    if isinstance(where, (int, float)) and not isinstance(where, bool): pos = (pos[0], int(H * float(where)))  # "pos": 0.165 = đặt ở 16,5% chiều cao
     im.alpha_composite(b, (max(0, pos[0] - 20), max(0, pos[1] - 20)))
     return im
 
@@ -216,6 +224,7 @@ def ass_time(t):
     return f"{h}:{m:02d}:{s:05.2f}"
 def build_ass(subs, W, H, path):
     S = H / 1080
+    V = H > W
     head = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {W}
@@ -224,7 +233,7 @@ WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Pum,Be Vietnam Pro ExtraBold,{int(62*S)},&H00FFFFFF,&H00FFFFFF,&H00302639,&H64302639,0,0,0,0,100,100,0,0,1,{4.5*S:.1f},{1.5*S:.1f},2,{int(160*S)},{int(160*S)},{int(64*S)},1
+Style: Pum,Be Vietnam Pro ExtraBold,{62 if V else int(62*S)},&H00FFFFFF,&H00FFFFFF,&H00302639,&H64302639,0,0,0,0,100,100,0,0,1,{5.0 if V else round(4.5*S, 1)},{1.6 if V else round(1.5*S, 1)},2,{70 if V else int(160*S)},{170 if V else int(160*S)},{int(H*0.29) if V else int(64*S)},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -248,31 +257,35 @@ def chunk_words(words, maxc=42, maxdur=3.2):
 
 # ---------- dựng một đoạn ----------
 _FD = None
-def face_box(src, t, W, H, pre=""):
+def face_box(src, t, W, H, pre="", chain=None):
     """mặt lớn nhất ở giây t (để đặt doodle cạnh mặt, không đè mặt)"""
     global _FD
     try:
         import cv2
         if _FD is None:
             _FD = cv2.FaceDetectorYN.create("/home/claude/models/face_detection_yunet_2023mar.onnx", "", (320, 320), 0.6, 0.3, 50)
-        raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t + 0.3:.2f}", "-i", src, "-frames:v", "1", "-vf", f"{pre}scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H}", "-f", "image2pipe", "-vcodec", "png", "-"], capture_output=True).stdout
+        if callable(chain): chain = chain(t)
+        raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t + 0.3:.2f}", "-i", src, "-frames:v", "1", "-vf", chain or f"{pre}scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H}", "-f", "image2pipe", "-vcodec", "png", "-"], capture_output=True).stdout
         img = cv2.imdecode(np.frombuffer(raw, np.uint8), 1)
         if img is None: return None
         _FD.setInputSize((img.shape[1], img.shape[0])); _, f = _FD.detect(img)
         if f is None: return None
-        r = max(f, key=lambda r: r[2] * r[3]); return tuple(float(v) for v in r[:4]) if r[2] > W * 0.05 else None
+        r = max(f, key=lambda r: r[2] * r[3]); return tuple(float(v) for v in r[:4]) if r[2] > min(W, H) * 0.05 else None
     except Exception:
         return None
 
 def doodle_pos(face, W, H, size, j, has_text, used=(), boxes=()):
     """chọn chỗ đặt doodle: không đè mặt (nới 25%), không đè băng chữ góc trái trên, không xuống vùng phụ đề;
     ưu tiên chỗ xa mặt vừa phải, đổi bên giữa các doodle trong cùng cảnh"""
-    C = [(0.80, 0.09), (0.62, 0.08), (0.84, 0.36), (0.05, 0.38), (0.06, 0.10), (0.30, 0.08), (0.70, 0.50), (0.12, 0.52)]
+    V = H > W
+    C = ([(0.66, 0.24), (0.06, 0.26), (0.64, 0.36), (0.05, 0.40), (0.06, 0.50), (0.62, 0.10), (0.36, 0.30)] if V else
+         [(0.80, 0.09), (0.62, 0.08), (0.84, 0.36), (0.05, 0.38), (0.06, 0.10), (0.30, 0.08), (0.70, 0.50), (0.12, 0.52)])
     best = None
     for cx, cy in C:
         x, y = cx * W, cy * H
-        if has_text and cx < 0.5 and cy < 0.32: continue
-        if y + size > H * 0.70: continue
+        if has_text and cx < 0.5 and cy < 0.32 and not V: continue
+        if y + size > H * (0.60 if V else 0.70): continue  # trên phụ đề (và trên vùng nút của TikTok)
+        if V and x + size > W * 0.86 and y + size > H * 0.40: continue  # cột nút bên phải của TikTok
         if any(abs(x - ux) < size * 0.9 and abs(y - uy) < size * 0.9 for ux, uy in used): continue
         if any(x < bx1 + 20 and x + size > bx0 - 20 and y < by1 + 20 and y + size > by0 - 20 for bx0, by0, bx1, by1 in boxes): continue  # không chạm chữ
         if face:
@@ -284,20 +297,122 @@ def doodle_pos(face, W, H, size, j, has_text, used=(), boxes=()):
         else:
             sc = -C.index((cx, cy)) * 10
         if best is None or sc > best[0]: best = (sc, x, y)
-    if best is None: return int(W * 0.80), int(H * 0.09)
+    if best is None: return None if V else (int(W * 0.80), int(H * 0.09))  # khung dọc: không còn chỗ trống thì bỏ doodle, không đè mặt
     return int(best[1]), int(best[2])
 
 SEG_VER = "s1"
+VSEG_VER = "v3"  # chỉ khung dọc: đổi khi sửa cách cắt cửa sổ 9:16 / đặt chữ né mặt (không làm mất kho đoạn của bản ngang)
 DOODLE_VER = "d2"  # đổi khi sửa cách đặt/vẽ doodle: chỉ dựng lại các đoạn có doodle  # đổi khi sửa cách dựng một đoạn (seg_render, doodle, chữ) để không dùng lại bản cũ
 
-def seg_key(sg, clips):
+def vcx(src, a, b, vw, vh, sg):
+    """tâm cửa sổ 9:16 (tỉ lệ bề ngang khung nguồn): theo mặt lớn nhất ở 3 thời điểm; bị giới hạn trong vùng crop nếu có"""
+    if sg.get("cx") is not None and sg.get("cx") != "auto": return float(sg["cx"])
+    hw = (vh * 9 / 16) / 2 / vw  # nửa bề ngang cửa sổ, tỉ lệ theo khung nguồn
+    xs = []
+    try:
+        import cv2
+        global _FD
+        if _FD is None:
+            _FD = cv2.FaceDetectorYN.create("/home/claude/models/face_detection_yunet_2023mar.onnx", "", (320, 320), 0.6, 0.3, 50)
+        for q in (0.2, 0.5, 0.8):
+            t = a + (b - a) * q
+            raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t:.2f}", "-i", src, "-frames:v", "1", "-vf", "scale=960:-2", "-f", "image2pipe", "-vcodec", "png", "-"], capture_output=True).stdout
+            img = cv2.imdecode(np.frombuffer(raw, np.uint8), 1)
+            if img is None: continue
+            _FD.setInputSize((img.shape[1], img.shape[0])); _, f = _FD.detect(img)
+            if f is None: continue
+            r = max(f, key=lambda r: r[2] * r[3])
+            if r[2] > img.shape[1] * 0.04: xs.append((r[0] + r[2] / 2) / img.shape[1])
+    except Exception: pass
+    c = float(np.median(xs)) if xs else 0.5
+    if sg.get("crop"):
+        x0, _, w0, _ = [float(v) for v in sg["crop"]]
+        lo, hi = x0 + hw, x0 + w0 - hw
+        c = min(max(c, lo), hi) if lo <= hi else x0 + w0 / 2
+    return min(max(c, hw), 1 - hw)
+
+_REC = None; _REF = None
+def _faces_pum(img):
+    """mọi mặt trong ảnh: (x0, x1 theo tỉ lệ bề ngang, bề ngang px, điểm dò, độ giống Pum theo ảnh mẫu hoặc None)"""
+    global _FD, _REC, _REF
+    import cv2
+    if _FD is None:
+        _FD = cv2.FaceDetectorYN.create("/home/claude/models/face_detection_yunet_2023mar.onnx", "", (320, 320), 0.6, 0.3, 50)
+    if _REC is None:
+        _REC = cv2.FaceRecognizerSF.create("/home/claude/models/face_recognition_sface_2021dec.onnx", ""); _REF = np.load("/home/claude/models/pum_ref.npy")
+    _FD.setInputSize((img.shape[1], img.shape[0])); _, f = _FD.detect(img)
+    out = []
+    for r in ([] if f is None else f):
+        if r[2] < img.shape[1] * 0.035: continue
+        sim = None
+        if r[2] >= 36:
+            try:
+                e = _REC.feature(_REC.alignCrop(img, r)).flatten(); e /= np.linalg.norm(e) + 1e-9; sim = float((_REF @ e).max())
+            except Exception: sim = None
+        out.append((float(r[0]) / img.shape[1], float(r[0] + r[2]) / img.shape[1], float(r[2]), float(r[14]), sim))
+    return out
+
+def vtrack(src, a, b, vw, vh, sg):
+    """khung dọc từ cảnh ngang: tâm cửa sổ 9:16 theo mặt Pum (nhận ra Pum bằng ảnh mẫu, không bám tượng hay người lạ).
+    Trả về các mốc [(giây trong đoạn, tâm theo tỉ lệ bề ngang)]: 1 mốc = đứng yên (Pum nằm gọn trong khung cả đoạn);
+    nhiều mốc = lia theo khi Pum ra gần mép khung. Vùng "crop" của đoạn (bỏ người đi cùng) là giới hạn của cửa sổ."""
+    hw = (vh * 9 / 16) / 2 / vw; lo, hi = hw, 1 - hw
+    if sg.get("crop"):
+        x0, _, w0, _ = [float(v) for v in sg["crop"]]
+        if x0 + hw <= x0 + w0 - hw: lo, hi = max(lo, x0 + hw), min(hi, x0 + w0 - hw)
+        else: lo = hi = min(max(x0 + w0 / 2, hw), 1 - hw)
+    cl = lambda c: min(max(c, lo), hi)
+    if sg.get("cx") is not None and sg.get("cx") != "auto": return [(0.0, cl(float(sg["cx"])))]
+    n = max(4, min(24, int((b - a) / 0.6) + 1)); smp = []
+    try:
+        import cv2
+        for q in np.linspace(0.03, 0.97, n):
+            t = a + (b - a) * q
+            raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t:.2f}", "-i", src, "-frames:v", "1", "-vf", "scale=960:-2", "-f", "image2pipe", "-vcodec", "png", "-"], capture_output=True).stdout
+            img = cv2.imdecode(np.frombuffer(raw, np.uint8), 1)
+            if img is not None: smp.append((t - a, _faces_pum(img)))
+    except Exception: pass
+    pts = [(t, f[0], f[1]) for t, fs in smp for f in [max((f for f in fs if f[4] is not None and f[4] >= 0.28), key=lambda f: f[4], default=None)] if f]
+    if not pts:  # không nhận ra Pum: chỉ bám mặt người ở gần máy (to, rõ: anh hướng dẫn, Pum nghiêng mặt); tượng, người xa thì để giữa khung
+        pts = [(t, g[0], g[1]) for t, fs in smp for g in [max(fs, key=lambda f: f[2], default=None)] if g and g[3] >= 0.8 and g[1] - g[0] >= 0.08]
+    if not pts: return [(0.0, cl((lo + hi) / 2 if sg.get("crop") else 0.5))]
+    L = min(p[1] for p in pts); Rr = max(p[2] for p in pts)
+    if Rr - L <= 2 * hw * 0.9: return [(0.0, cl((L + Rr) / 2))]
+    m = hw * 0.15; c = cl((pts[0][1] + pts[0][2]) / 2); keys = [(0.0, c)]; tp = 0.0
+    for t, x0, x1 in pts:
+        c0 = c
+        if x0 < c - hw + m: c = cl(x0 + hw - m)
+        elif x1 > c + hw - m: c = cl(x1 - hw + m)
+        if abs(c - c0) > 1e-3:
+            if keys[-1][0] < tp - 1e-3: keys.append((round(tp, 3), c0))  # giữ yên tới mẫu trước rồi mới lia
+            keys.append((round(max(t, keys[-1][0] + 0.2), 3), c))
+        tp = t
+    return keys
+
+def c_at(keys, tr):
+    if tr <= keys[0][0]: return keys[0][1]
+    for (t0, c0), (t1, c1) in zip(keys, keys[1:]):
+        if tr < t1: return c0 + (c1 - c0) * (tr - t0) / max(t1 - t0, 1e-3)
+    return keys[-1][1]
+
+def vfit(keys, W, H):
+    """bộ lọc khung dọc: phóng theo chiều cao rồi cắt cửa sổ 9:16; tâm lia tuyến tính giữa các mốc (t tính từ đầu đoạn)"""
+    if len(keys) == 1: ce = f"{keys[0][1]:.4f}"
+    else:
+        ce = f"{keys[-1][1]:.4f}"
+        for (t0, c0), (t1, c1) in reversed(list(zip(keys, keys[1:]))):
+            ce = f"if(lt(t,{t1:.3f}),{c0:.4f}+({c1 - c0:.4f})*(t-{t0:.3f})/{max(t1 - t0, 0.01):.3f},{ce})"
+        ce = f"if(lt(t,{keys[0][0]:.3f}),{keys[0][1]:.4f},{ce})"
+    return f"scale=-2:{H},crop={W}:{H}:x='min(max(0,iw*({ce})-{W}/2),iw-{W})':y=0"
+
+def seg_key(sg, clips, W=1920, H=1080):
     """khoá nội dung của một đoạn đã dựng: json đoạn + file nguồn (inode, cỡ, giờ sửa) + mã của render.py/doodle.py"""
     src = sg.get("path") or clips[sg["clip"]]["path"]; st = os.stat(src)
-    return hashlib.sha1(json.dumps(sg, sort_keys=True, ensure_ascii=False).encode() + f"{st.st_ino}:{st.st_size}:{st.st_mtime}".encode() + SEG_VER.encode() + (DOODLE_VER.encode() if sg.get("doodles") else b"")).hexdigest()[:16]
+    return hashlib.sha1(json.dumps(sg, sort_keys=True, ensure_ascii=False).encode() + f"{st.st_ino}:{st.st_size}:{st.st_mtime}".encode() + SEG_VER.encode() + (DOODLE_VER.encode() if sg.get("doodles") else b"") + f"{W}x{H}".encode() + (VSEG_VER.encode() if H > W else b"")).hexdigest()[:16]
 
 def seg_cached(i, sg, clips, W, H, fx, tmp, d):
     """dựng lại chỉ những đoạn đổi; đoạn không đổi lấy từ kho segcache (hardlink)"""
-    C = d / "segcache"; C.mkdir(exist_ok=True); k = seg_key(sg, clips)
+    C = d / "segcache"; C.mkdir(exist_ok=True); k = seg_key(sg, clips, W, H)
     out = tmp / f"seg{i:03d}.mp4"; outa = tmp / f"seg{i:03d}.wav"
     if (C / f"{k}.mp4").exists() and (C / f"{k}.wav").exists():
         for x, y in ((C / f"{k}.mp4", out), (C / f"{k}.wav", outa)):
@@ -313,20 +428,52 @@ def seg_cached(i, sg, clips, W, H, fx, tmp, d):
         os.link(x, y)
     return f, dur
 
+def place_v(cim, src, a, sp, s0, s1, W, H, chain, placed):
+    """khung dọc: nếu mảng chữ đè mặt Pum (nới 10–12%) hoặc đè chữ khác cùng lúc, dời theo chiều dọc tới chỗ trống gần nhất
+    trong vùng an toàn (dưới 7,5% trên cùng, trên vùng phụ đề ~62%)"""
+    bb = cim.getbbox()
+    if not bb: return cim
+    faces = [f_ for f_ in (face_box(src, a + q * sp, W, H, "", chain) for q in (s0 + 0.15, (s0 + s1) / 2, max(s0, s1 - 0.15))) if f_]
+    h_ = bb[3] - bb[1]
+    def bad(y0):
+        x0, x1, y1 = bb[0], bb[2], y0 + h_
+        for fx0, fy0, fw, fh in faces:  # vùng giữ: từ chân mày tới cằm (chữ được phép nằm trên tóc, trán, mũ)
+            if fw < W * 0.05: continue
+            if x0 < fx0 + fw * 1.08 and x1 > fx0 - fw * 0.08 and y0 < fy0 + fh * 1.08 and y1 > fy0 + fh * 0.22: return True
+        for p0, p1, pb in placed:
+            if p0 < s1 and p1 > s0 and x0 < pb[2] + 12 and x1 > pb[0] - 12 and y0 < pb[3] + 12 and y1 > pb[1] - 12: return True
+        return False
+    if not bad(bb[1]): return cim
+    for y in sorted(range(int(H * 0.075), int(H * 0.62) - h_, 6), key=lambda y: abs(y - bb[1])):
+        if not bad(y):
+            out = Image.new("RGBA", (W, H), (0, 0, 0, 0)); out.paste(cim, (0, y - bb[1]), cim); return out
+    return cim
+
 def seg_render(i, sg, clips, W, H, fx, tmp):
     src = sg.get("path") or clips[sg["clip"]]["path"]; info = clips.get(sg.get("clip"), {})
     a, b = float(sg["in"]), float(sg["out"]); sp = float(sg.get("speed", 1))
     NF = max(1, int(round((b - a) / sp * FPS))); dur = NF / FPS  # đúng số khung: hình và tiếng mỗi đoạn dài bằng nhau tuyệt đối
     vw, vh = info.get("w") or 1920, info.get("h") or 1080
-    fit = sg.get("fit") or ("blur" if vh > vw else "fill")
+    if sg.get("path") and Path(sg["path"]).exists():  # bản đã prep: lấy đúng cỡ khung
+        try:
+            vw, vh = [int(v) for v in subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", sg["path"]], capture_output=True, text=True).stdout.strip().split(",")[:2]]
+        except Exception: pass
+    # clip dọc trong video ngang: nền mờ; clip ngang trong video dọc (TikTok): cắt cửa sổ 9:16 theo Pum (vtrack)
+    fit = sg.get("fit") or ("blur" if vh > vw and W > H else "fill")
     z = sg.get("zoom")
     vf = []
     pre = ""
-    if sg.get("crop"):  # cắt khung (bỏ mép có người đi cùng): [x, y, w, h] tỉ lệ 0..1 của khung gốc
+    if H > W and fit == "fill" and vw > vh:
+        # khung dọc từ cảnh ngang: cửa sổ 9:16 đặt theo mặt Pum; vùng "crop" (bỏ người đi cùng) thành giới hạn cửa sổ
+        vkeys = vtrack(src, a, b, vw, vh, sg)
+        vf.append(vfit(vkeys, W, H))
+        vchain = lambda ta: vfit([(0.0, c_at(vkeys, ta + 0.3 - a))], W, H)  # khung tĩnh đúng lúc ta (cho dò mặt 1 khung)
+    elif sg.get("crop"):  # cắt khung (bỏ mép có người đi cùng): [x, y, w, h] tỉ lệ 0..1 của khung gốc
         cx, cy, cw, ch_ = [float(v) for v in sg["crop"]]
         pre = f"crop=trunc(iw*{cw}/2)*2:trunc(ih*{ch_}/2)*2:trunc(iw*{cx}):trunc(ih*{cy}),"
         vf.append(pre[:-1])
-    if fit == "blur":
+    if H > W and fit == "fill" and vw > vh: pass
+    elif fit == "blur":
         vf.append(f"split[a][b];[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},gblur=sigma=28,eq=brightness=-0.06[bg];[b]scale=-2:{H}[fg];[bg][fg]overlay=(W-w)/2:0")
     else:
         vf.append(f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H}")
@@ -338,7 +485,15 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
     if sg.get("look") == "warm": vf.insert(-1, "eq=saturation=1.08:gamma=1.02")
     if sg.get("bright"): vf.insert(-1, f"eq=brightness={float(sg['bright']):.2f}")
     inputs = ["-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-i", src]
-    fc = [f"[0:v]{','.join(vf)}[v0]"]; last = "v0"; k = 1
+    # che trên khung nguồn (trước khi cắt khung ngang/dọc): "hide_src":[{"box":[x,y,w,h] tỉ lệ 0..1 của khung nguồn, "start", "end"}]
+    # dùng cho biển số lọt lưới máy dò (ví dụ biển nằm sát mép khung): đúng chỗ ở cả bản ngang lẫn bản dọc
+    src0 = "0:v"; pre_fc = []
+    for j, h in enumerate(sg.get("hide_src", [])):
+        x, y, w, hh = h["box"]; bx, by = int(x * vw) // 2 * 2, int(y * vh) // 2 * 2
+        bw, bh = max(16, int(w * vw) // 2 * 2), max(16, int(hh * vh) // 2 * 2)
+        s0, s1 = float(h.get("start", 0)), float(h.get("end", 1e6))
+        pre_fc.append(f"[{src0}]split[q{j}a][q{j}b];[q{j}b]crop={bw}:{bh}:{bx}:{by},boxblur=luma_radius=min(w\\,h)/4:luma_power=3[q{j}c];[q{j}a][q{j}c]overlay={bx}:{by}:enable='between(t,{s0:.2f},{s1:.2f})'[q{j}]"); src0 = f"q{j}"
+    fc = pre_fc + [f"[{src0}]{','.join(vf)}[v0]"]; last = "v0"; k = 1
     tboxes = []  # (bắt đầu, kết thúc, hộp chữ) để doodle né
     # che người đi cùng, biển số xe: "hide":[{"box":[x,y,w,h] (tỉ lệ 0..1 của khung ra), "start":giây, "end":giây}]
     for j, h in enumerate(sg.get("hide", [])):
@@ -346,8 +501,18 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         bw, bh = max(16, int(w * W) // 2 * 2), max(16, int(hh * H) // 2 * 2)
         s0, s1 = float(h.get("start", 0)), float(h.get("end", dur))
         fc.append(f"[{last}]split[h{j}a][h{j}b];[h{j}b]crop={bw}:{bh}:{bx}:{by},boxblur=luma_radius=min(w\\,h)/5:luma_power=3[h{j}c];[h{j}a][h{j}c]overlay={bx}:{by}:enable='between(t,{s0:.2f},{s1:.2f})'[h{j}]"); last = f"h{j}"
-    for j, t in enumerate(sg.get("text", [])):
-        png = tmp / f"t{i}_{j}.png"; cim = card(t["text"], t.get("style", "tape"), W, H, fx, t.get("pos")); cim.save(png)
+    T_ = sg.get("text", [])
+    cims = [card(t["text"], t.get("style", "tape"), W, H, fx, t.get("pos")) for t in T_]
+    if H > W and fit == "fill" and vw > vh:  # khung dọc: đặt chữ né mặt Pum; băng chữ được ưu tiên chỗ trước nhãn
+        PRI = {"label": 0, "tape": 1, "postcard": 2, "price": 3}; placed = []  # nhãn nhỏ giữ chỗ trên cùng; băng chữ tìm chỗ trống gần nhất
+        for j in sorted(range(len(T_)), key=lambda j: PRI.get(T_[j].get("style", "tape"), 9)):
+            t = T_[j]
+            if t.get("style", "tape") in PRI:
+                cims[j] = place_v(cims[j], src, a, sp, float(t.get("start", 0)), float(t.get("end", dur)), W, H, vchain, placed)
+            placed.append((float(t.get("start", 0)), float(t.get("end", dur)), cims[j].getbbox() or (0, 0, 0, 0)))
+    for j, t in enumerate(T_):
+        png = tmp / f"t{i}_{j}.png"; cim = cims[j]
+        cim.save(png)
         tboxes.append((float(t.get("start", 0)), float(t.get("end", dur)), cim.getbbox() or (0, 0, 0, 0)))
         inputs += ["-loop", "1", "-t", f"{dur:.3f}", "-i", str(png)]
         s0, s1 = float(t.get("start", 0)), float(t.get("end", dur))
@@ -362,14 +527,17 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         from doodle import anim as _anim
         used = []
         for j, dd in enumerate(sg["doodles"]):
-            s0, s1 = float(dd["start"]), min(float(dd["end"]), dur - 0.05); size = int(H * dd.get("size", 0.21))
+            s0, s1 = float(dd["start"]), min(float(dd["end"]), dur - 0.05); size = int(min(W, H) * dd.get("size", 0.21))
             if s1 - s0 < 0.4: continue
-            fs = [f_ for f_ in (face_box(src, a + q_ * sp, W, H, pre) for q_ in (s0, (s0 + s1) / 2)) if f_] if fit != "blur" else []
+            chain_ = vchain if (H > W and fit == "fill" and vw > vh) else None
+            fs = [f_ for f_ in (face_box(src, a + q_ * sp, W, H, pre, chain_) for q_ in (s0, (s0 + s1) / 2)) if f_] if fit != "blur" else []
             face = (min(f_[0] for f_ in fs), min(f_[1] for f_ in fs), max(f_[0] + f_[2] for f_ in fs) - min(f_[0] for f_ in fs),
                     max(f_[1] + f_[3] for f_ in fs) - min(f_[1] for f_ in fs)) if fs else None
             txt_on = any(float(t.get("start", 0)) < s1 and float(t.get("end", dur)) > s0 and t.get("style") in ("tape", "label") or t.get("pos") == "top" for t in sg.get("text", []))
             bx_ = [b_ for t0_, t1_, b_ in tboxes if t0_ < s1 and t1_ > s0]
-            x, y = doodle_pos(face, W, H, size, j, txt_on, used, bx_); used.append((x, y))
+            pos_ = doodle_pos(face, W, H, size, j, txt_on, used, bx_)
+            if pos_ is None: continue
+            x, y = pos_; used.append((x, y))
             frames, C = _anim(dd["kind"], size, s1 - s0)
             for q, im in enumerate(frames): im.save(tmp / f"d{i}_{j}_{q:03d}.png")
             ox, oy = x - (C - size) // 2, y - (C - size) // 2

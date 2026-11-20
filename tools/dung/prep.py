@@ -87,7 +87,7 @@ def worker(job):
                     if r[2] >= 36:
                         e = rec.feature(rec.alignCrop(img, r)).flatten(); e /= np.linalg.norm(e) + 1e-9; sim = float((REF @ e).max())
                     dets.append([n, float(r[0]), float(r[1]), float(r[2]), float(r[3]), sim, float(r[14])])
-                if n % 2 == 0 and sg["clip"] not in NOPLATE_CLIPS:
+                if n % 3 == 0 and sg["clip"] not in NOPLATE_CLIPS:
                     # cả khung + 6 ô phóng to (biển nhỏ, biển 2 dòng gần vuông); lọc màu để bỏ quả cà phê, mép bàn, lá
                     cand = list(plates(img, 0.3))
                     for ox, oy in ((0, 0), (W // 2 - 200, 0), (W // 2, 0), (0, H // 2 - 120), (W // 2 - 200, H // 2 - 120), (W // 2, H // 2 - 120)):
