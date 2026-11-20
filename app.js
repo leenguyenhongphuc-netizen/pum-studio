@@ -1314,7 +1314,7 @@ async function postKit(box, sc, st, e){
       <div class="kittext">
         ${vidRow(slot, it)}
         ${it.title ? `<label class="f">Tên video<span class="kitcopy"><input type="text" readonly value="${esc(it.title)}"><button class="btn small ghost" type="button" data-copy="${esc(it.title)}">Chép</button></span></label>` : ""}
-        <label class="f">${kind === "yt" ? "Mô tả YouTube (đã có chương, ghi công nhạc, hashtag)" : "Caption TikTok (đã có hashtag và ghi công nhạc)"}<textarea readonly style="min-height:${kind === "yt" ? 360 : 170}px">${esc(it.text)}</textarea></label>
+        <label class="f">${kind === "yt" ? "Mô tả YouTube (đã có chương, ghi công nhạc, hashtag)" : "Caption TikTok (đã có hashtag và ghi công nhạc)"}<textarea readonly style="min-height:${kind === "yt" ? 420 : 250}px">${esc(it.text)}</textarea></label>
         <button class="btn small" type="button" data-copy="${esc(it.text)}">Chép ${kind === "yt" ? "mô tả" : "caption"}</button>
         ${it.tags ? `<label class="f" style="margin-top:12px">Thẻ (tags) YouTube<span class="kitcopy"><input type="text" readonly value="${esc(it.tags)}"><button class="btn small ghost" type="button" data-copy="${esc(it.tags)}">Chép</button></span></label>` : ""}
         ${it.note ? `<p class="small muted" style="margin-top:8px">${esc(it.note)}</p>` : ""}
