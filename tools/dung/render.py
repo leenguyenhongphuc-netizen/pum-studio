@@ -105,6 +105,26 @@ def sfx_file(name):
         y = y * k * 2
     elif name == "click":  # màn trập máy ảnh
         n = int(0.16 * sr); y = rng.standard_normal(n) * (env(n, 0.0005, 0.01) + np.roll(env(n, 0.0005, 0.012), int(0.06 * sr)) * .8) * .7
+    elif name == "slide":  # còi trượt đi xuống, theo mặt trời lặn
+        n = int(1.3 * sr); t = np.arange(n) / sr; f = 1500 * np.exp(-t * 1.25) + 260
+        vib = 1 + 0.012 * np.sin(2 * np.pi * 6 * t)
+        y = (np.sin(2 * np.pi * np.cumsum(f * vib) / sr) + .25 * np.sin(4 * np.pi * np.cumsum(f * vib) / sr)) * np.minimum(1, t / 0.05) * np.minimum(1, (t[-1] - t) / 0.25) * .6
+    elif name == "drip":  # giọt nước
+        n = int(0.32 * sr); t = np.arange(n) / sr; f = 700 + 1300 * (t / t[-1]) ** 0.6
+        y = np.sin(2 * np.pi * np.cumsum(f) / sr) * env(n, 0.002, 0.06)
+    elif name == "ticktock":  # tích tắc
+        n = int(1.3 * sr); y = np.zeros(n)
+        for k in range(4):
+            st = int(k * 0.3 * sr); m = int(0.05 * sr); tt = np.arange(m) / sr; fq = 2400 if k % 2 == 0 else 1700
+            y[st:st + m] += np.sin(2 * np.pi * fq * tt) * np.exp(-tt / 0.008) + rng.standard_normal(m) * np.exp(-tt / 0.004) * .3
+    elif name == "puff":  # phụt mây
+        n = int(0.45 * sr); x = rng.standard_normal(n); t = np.arange(n) / sr; k = np.exp(-t / 0.12) * np.minimum(1, t / 0.02)
+        y = np.zeros(n); a = 0.0
+        for i in range(n): a = a + 0.06 * (x[i] - a); y[i] = a
+        y = y * k * 3
+    elif name == "flutter":  # cánh bướm vỗ
+        n = int(0.6 * sr); x = rng.standard_normal(n); t = np.arange(n) / sr
+        y = x * (0.5 + 0.5 * np.sin(2 * np.pi * 14 * t)) ** 4 * np.minimum(1, t / 0.05) * np.exp(-t / 0.35) * .5
     else: raise SystemExit("sfx lạ: " + name)
     y = (y / (np.abs(y).max() + 1e-9) * 0.7 * 32767).astype(np.int16)
     import wave
@@ -302,8 +322,11 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         png = tmp / f"t{i}_{j}.png"; card(t["text"], t.get("style", "tape"), W, H, fx, t.get("pos")).save(png)
         inputs += ["-loop", "1", "-t", f"{dur:.3f}", "-i", str(png)]
         s0, s1 = float(t.get("start", 0)), float(t.get("end", dur))
-        fade = f"fade=t=in:st={s0:.2f}:d=0.18:alpha=1,fade=t=out:st={max(s0,s1-0.18):.2f}:d=0.18:alpha=1"
-        bounce = f"-34*exp(-(t-{s0:.2f})*7)*cos((t-{s0:.2f})*21)"  # bật nảy khi hiện
+        # chữ nối từ đoạn trước / sang đoạn sau (cont_in/cont_out): không hiện lại, không nảy, không mờ đi ở chỗ nối
+        fins = [] if t.get("cont_in") else [f"fade=t=in:st={s0:.2f}:d=0.18:alpha=1"]
+        fouts = [] if t.get("cont_out") else [f"fade=t=out:st={max(s0,s1-0.18):.2f}:d=0.18:alpha=1"]
+        fade = ",".join(fins + fouts) or "null"
+        bounce = "0" if t.get("cont_in") else f"-34*exp(-(t-{s0:.2f})*7)*cos((t-{s0:.2f})*21)"  # bật nảy khi hiện
         fc.append(f"[{k}:v]format=rgba,{fade}[o{k}]"); fc.append(f"[{last}][o{k}]overlay=x=0:y='{bounce}':enable='between(t,{s0:.2f},{s1:.2f})'[v{k}]"); last = f"v{k}"; k += 1
     # doodle vẽ tay: 3 khung rung luân phiên, bật nảy, đặt cạnh mặt Pum (né chữ góc trái trên)
     if sg.get("doodles"):
@@ -332,7 +355,7 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         g = {"src": 1.0, "low": 0.28, "amb": 0.45}.get(mode, 1.0) * vol
         at = f",atempo={sp}" if sp != 1 and 0.5 <= sp <= 2 else ""
         fd = float(sg.get("fade", 0.06))
-        clean = (",highpass=f=85,arnndn=m=/home/claude/models/sh.rnnn:mix=0.88,afftdn=nr=8:nf=-38:tn=1,equalizer=f=3200:t=q:w=1.2:g=2,acompressor=threshold=-22dB:ratio=2.5:attack=6:release=140:makeup=2"
+        clean = (",highpass=f=85,arnndn=m=/home/claude/models/sh.rnnn:mix=0.88,afftdn=nr=8:nf=-38:tn=1,equalizer=f=3200:t=q:w=1.2:g=2,acompressor=threshold=-22dB:ratio=2.5:attack=6:release=140:makeup=2,atrim=start=0.032,asetpts=PTS-STARTPTS"
                  if mode == "src" and Path("/home/claude/models/sh.rnnn").exists() and sg.get("voice") == "noi" else "")
         fc.append(f"[0:a]aresample={SR},aformat=channel_layouts=stereo{at}{clean},volume={g:.3f},afade=t=in:d={fd:.3f},afade=t=out:st={max(0,dur-fd-0.02):.3f}:d={fd+0.02:.3f}[a0]")
     alast = "a0"
@@ -341,12 +364,13 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         vsrc = vo.get("path") or clips[vo["clip"]]["path"]
         inputs += ["-ss", f"{float(vo['in']):.3f}", "-to", f"{float(vo['out']):.3f}", "-i", vsrc]
         ms = int(float(vo.get("at", 0.2)) * 1000)
-        dn = ",arnndn=m=/home/claude/models/sh.rnnn:mix=0.88,afftdn=nr=8:nf=-38:tn=1,equalizer=f=3200:t=q:w=1.2:g=2" if vo.get("speech") and Path("/home/claude/models/sh.rnnn").exists() else ""
+        dn = ",arnndn=m=/home/claude/models/sh.rnnn:mix=0.88,afftdn=nr=8:nf=-38:tn=1,equalizer=f=3200:t=q:w=1.2:g=2,atrim=start=0.032,asetpts=PTS-STARTPTS" if vo.get("speech") and Path("/home/claude/models/sh.rnnn").exists() else ""
         fc.append(f"[{k}:a]aresample={SR},aformat=channel_layouts=stereo,highpass=f=85{dn},acompressor=threshold=-20dB:ratio=3:attack=5:release=120,volume={float(vo.get('vol',1.15)):.2f},adelay={ms}|{ms}[vo]")
         fc.append(f"[{alast}][vo]amix=inputs=2:normalize=0:duration=first[am]"); alast = "am"; k += 1
     fc.append(f"[{alast}]aresample={SR},apad,atrim=end_sample={NF * SR // FPS},asetpts=N/SR/TB[aout]")
     fc.append(f"[{last}]fps={FPS},tpad=stop_mode=clone:stop_duration=0.5,trim=end_frame={NF},setpts=N/{FPS}/TB[vfin]")
     out = tmp / f"seg{i:03d}.mp4"; outa = tmp / f"seg{i:03d}.wav"
+    # lọc ồn (arnndn + afftdn) làm tiếng trễ ~32 ms: đã bù bằng atrim ở trên.
     # hình (không tiếng) và tiếng (PCM, đúng số mẫu) ghi riêng: ghép AAC nhiều đoạn làm tiếng trễ dần ~0,03 s mỗi chỗ nối
     sh(["ffmpeg", "-y", "-v", "error", *inputs, "-filter_complex", ";".join(fc),
         "-map", "[vfin]", "-frames:v", str(NF), "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "15", "-pix_fmt", "yuv420p", "-r", str(FPS), str(out),
@@ -367,6 +391,15 @@ def seg_subs(sg, scan, t0):
     if sg.get("vo"): v = sg["vo"]; take(v.get("clip"), float(v["in"]), float(v["out"]), float(v.get("at", 0.2)))
     elif sg.get("audio", "src") == "src": take(sg.get("clip"), float(sg["in"]), float(sg["out"]), 0)
     return out
+
+def vcodec_final(total):
+    """Bản cuối: mặc định H.264 crf 16. PUM_SEND_MB=400: H.265 (hvc1, xem được trên iPhone) canh đúng dung lượng để gửi trong chat."""
+    mb = os.environ.get("PUM_SEND_MB")
+    if not mb:
+        return ["-c:v", "libx264", "-preset", os.environ.get("PUM_PRESET", "medium"), "-crf", os.environ.get("PUM_CRF", "16")]
+    kbps = int(float(mb) * 8 * 1024 * 0.96 / max(1.0, total) - 192)
+    return ["-c:v", "libx265", "-preset", os.environ.get("PUM_PRESET", "fast"), "-b:v", f"{kbps}k", "-maxrate", f"{int(kbps * 1.6)}k", "-bufsize", f"{kbps * 2}k",
+            "-x265-params", "log-level=error:aq-mode=3", "-tag:v", "hvc1"]
 
 def main():
     ep, edl_p = sys.argv[1], Path(sys.argv[2]); proxy_only = "--proxy-only" in sys.argv
@@ -412,7 +445,7 @@ def main():
     for c in E.get("music", []):
         p, info = music_file(c["track"]); credits.append(info["title"])
         st, en = remap(float(c["start"])), remap(float(c["end"])); fr = float(c.get("from", 0)); dur = en - st
-        ain += ["-i", str(p)]
+        ain += ["-stream_loop", "-1", "-i", str(p)]  # lặp bài nếu đoạn dài hơn bài hoặc bắt đầu giữa bài
         fi, fo = float(c.get("fadein", 1.2)), float(c.get("fadeout", 2.0))
         a_fc.append(f"[{ai}:a]atrim={fr:.2f}:{fr+dur:.2f},asetpts=PTS-STARTPTS,aresample={SR},aformat=channel_layouts=stereo,volume={float(c.get('vol',0.16)):.3f},afade=t=in:d={fi},afade=t=out:st={max(0,dur-fo):.2f}:d={fo},adelay={int(st*1000)}|{int(st*1000)}[m{ai}]")
         mus.append(f"[m{ai}]"); ai += 1
@@ -435,8 +468,8 @@ def main():
     final = out / "final.mp4"; proxy = out / "proxy.mp4"
     if not proxy_only:
         sh(["ffmpeg", "-y", "-v", "error", *vin2, "-filter_complex", ";".join(fc), "-map", "[vout]", "-map", amap,
-            "-c:v", "libx264", "-preset", os.environ.get("PUM_PRESET", "medium"), "-crf", os.environ.get("PUM_CRF", "16"), "-pix_fmt", "yuv420p", "-r", str(FPS), "-movflags", "+faststart",
-            "-c:a", "aac", "-b:a", "256k", "-t", f"{total:.2f}", str(final)])
+            *vcodec_final(total), "-pix_fmt", "yuv420p", "-r", str(FPS), "-movflags", "+faststart",
+            "-c:a", "aac", "-b:a", "192k" if os.environ.get("PUM_SEND_MB") else "256k", "-t", f"{total:.2f}", str(final)])
         sh(["ffmpeg", "-y", "-v", "error", "-i", str(final), "-vf", "scale=854:-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "30",
             "-c:a", "aac", "-b:a", "64k", "-ac", "1", "-movflags", "+faststart", str(proxy)])
     else:

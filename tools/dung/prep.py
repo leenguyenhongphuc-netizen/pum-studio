@@ -2,7 +2,7 @@
 màu tổng thể, che mặt người khác và biển số xe. Ghi /home/claude/pumdung/testlate/prep/<id>.mp4 (giữ tiếng gốc),
 xuất edl mới trỏ "path" vào file đã xử lý. Có bộ nhớ đệm theo (clip, in, out, preset) nên chạy lại chỉ làm đoạn đổi.
 python3 -I prep.py edl_in.json edl_out.json [--only id1,id2] [--jobs 2]"""
-import json, sys, subprocess, pathlib, hashlib, os, time
+import os, json, sys, subprocess, pathlib, hashlib, os, time
 import numpy as np, cv2
 
 sys.path.insert(0, "/home/claude/pum-studio/tools/dung")
@@ -15,6 +15,8 @@ FOOD = ("Tô bánh canh", "Cận tô", "Cận mâm", "Hết sườn vì dậy tr
 
 
 NOBLUR = ("Kịp rồi", "Mây giống gì", "Mây khủng long", "Câu hỏi cuối")  # cảnh trời, cây: máy hay nhận nhầm bóng cây thành mặt
+NOPLATE = ("Địa chỉ",)  # biển số nhà của quán: cần hiện để người xem tìm đường
+from platefilt import plate_like
 def noblur(sg): return sg["label"].startswith(NOBLUR + ("Phía sau nhà",)) or str(sg.get("clip", "")).startswith("1Y-NTM")
 
 def preset_for(sg):
@@ -82,10 +84,15 @@ def worker(job):
                     sim = None
                     if r[2] >= 36:
                         e = rec.feature(rec.alignCrop(img, r)).flatten(); e /= np.linalg.norm(e) + 1e-9; sim = float((REF @ e).max())
-                    dets.append([n, float(r[0]), float(r[1]), float(r[2]), float(r[3]), sim])
-                if n % 4 == 0:
-                    for x0, y0, bw, bh in plates(img, 0.45):
-                        if 1.3 <= bw / max(bh, 1) <= 6.5 and bw >= 18: pls.append([n, x0, y0, bw, bh])
+                    dets.append([n, float(r[0]), float(r[1]), float(r[2]), float(r[3]), sim, float(r[14])])
+                if n % 4 == 0 and not sg["label"].startswith(NOPLATE):
+                    # cả khung + 6 ô phóng to (biển nhỏ, biển 2 dòng gần vuông); lọc màu để bỏ quả cà phê, mép bàn, lá
+                    cand = list(plates(img, 0.3))
+                    for ox, oy in ((0, 0), (W // 2 - 200, 0), (W // 2, 0), (0, H // 2 - 120), (W // 2 - 200, H // 2 - 120), (W // 2, H // 2 - 120)):
+                        cand += [[b_[0] + ox, b_[1] + oy, b_[2], b_[3]] for b_ in plates(img[oy:oy + H // 2 + 120, ox:ox + W // 2], 0.4)]
+                    for x0, y0, bw, bh in cand:
+                        if bw >= 14 and 0.8 <= bw / max(bh, 1) <= 6.5 and bw * bh < 0.02 * W * H and plate_like(img, x0, y0, bw, bh):
+                            pls.append([n, x0, y0, bw, bh])
             n += 1
         rd.stdout.close(); rd.wait()
     # vệt mặt
@@ -101,12 +108,13 @@ def worker(job):
     for d in dets: big_per_frame[d[0]] = max(big_per_frame.get(d[0], 0), d[3])
     pum_tracks, blur_tracks = [], []
     for t in tracks:
-        sims = [d[5] for d in t if d[5] is not None]; mw = float(np.mean([d[3] for d in t]))
+        sims = [d[5] for d in t if d[5] is not None]; mw = float(np.mean([d[3] for d in t])); msc = float(np.mean([d[6] for d in t]))
         largest = np.mean([d[3] >= 0.7 * big_per_frame[d[0]] for d in t]) > 0.6
         edge = np.mean([d[1] < 4 or d[2] < 4 or d[1] + d[3] > W - 4 for d in t]) > 0.5
         if sims and (max(sims) >= 0.30 or np.median(sims) >= 0.22): pum_tracks.append(t)
         elif selfie and largest and mw > 0.05 * W: pum_tracks.append(t)
         elif edge and mw > 0.06 * W: pum_tracks.append(t)
+        elif msc < 0.77: pum_tracks.append(t) if mw > 0.06 * W else None  # điểm "giống mặt" thấp: đồ vật (món ăn, hũ, lá) bị nhận nhầm, không che
         elif sims and max(sims) < 0.16 and len(sims) >= 2: blur_tracks.append(t)
         elif mw < 0.035 * W: blur_tracks.append(t)          # mặt nhỏ phía xa: người lạ
         elif len(t) >= 3 and not selfie: blur_tracks.append(t)
@@ -125,11 +133,20 @@ def worker(job):
     pumbox = {}
     for t in pum_tracks:
         for k, bx in interp(t).items(): pumbox.setdefault(k, []).append(bx)
-    for p_ in pls:
+    # biển số: gom vệt theo thời gian, nội suy giữa các lần dò, kéo dài ±8 khung (không chớp lộ)
+    ptr = []
+    for p_ in sorted(pls):
         k0, x0, y0, bw, bh = p_
-        onpum = any(px - pw * 1.3 < x0 + bw / 2 < px + pw * 2.3 and y0 > py for px, py, pw, ph in pumbox.get(k0, []))
-        if onpum: continue
-        for k in range(k0 - 2, k0 + 5): fblur.setdefault(k, []).append(("plate", [x0, y0, bw, bh]))
+        if any(px - pw * 1.3 < x0 + bw / 2 < px + pw * 2.3 and y0 > py for px, py, pw, ph in pumbox.get(k0, [])): continue
+        t_ = next((t for t in ptr if 0 < k0 - t[-1][0] <= 16 and abs(x0 + bw / 2 - t[-1][1] - t[-1][3] / 2) < 1.2 * max(bw, t[-1][3]) + 20
+                   and abs(y0 + bh / 2 - t[-1][2] - t[-1][4] / 2) < 1.2 * max(bh, t[-1][4]) + 20), None)
+        (t_.append(p_) if t_ else ptr.append([p_]))
+    for t in ptr:
+        for d0, d1 in zip(t, t[1:] + [t[-1]]):
+            for k in range(d0[0], max(d0[0] + 4, d1[0] + 1)):
+                u = min(1.0, (k - d0[0]) / max(1, d1[0] - d0[0])); fblur.setdefault(k, []).append(("plate", [d0[i] + (d1[i] - d0[i]) * u for i in (1, 2, 3, 4)]))
+        for k in list(range(t[0][0] - 8, t[0][0])) + list(range(t[-1][0] + 1, t[-1][0] + 9)):
+            fblur.setdefault(k, []).append(("plate", list(t[0][1:5] if k < t[0][0] else t[-1][1:5])))
     # ---- lượt 2: làm đẹp + che ----
     rd = reader()
     wr = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}", "-r", "30", "-i", "-",
@@ -146,10 +163,20 @@ def worker(job):
         st["stranger"] += any(k_ == "face" for k_, _ in fblur.get(n, [])); st["plate"] += any(k_ == "plate" for k_, _ in fblur.get(n, []))
         wr.stdin.write(out_img.tobytes()); n += 1
     wr.stdin.close(); wr.wait(); rd.wait(); st["frames"] = n
+    tmpo = OUT / f'{sg["id"]}.o.mp4'
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(tmpv), "-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-i", src, "-map", "0:v", "-map", "1:a?",
-                    "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-shortest", str(out)], check=True)
+                    "-c:v", "copy", "-c:a", "aac", "-b:a", "256k", "-shortest", str(tmpo)], check=True)
+    os.replace(tmpo, out)  # file mới (inode mới): không ghi đè lên bản dùng chung qua hardlink (bykey)
     tmpv.unlink()
     return sg["id"], st
+
+
+def bk_save(sid, st):
+    BK = OUT / "bykey"; f0 = OUT / f"{sid}.mp4"; f1 = BK / f'{st["key"]}.mp4'
+    try:
+        if f1.exists(): f1.unlink()
+        os.link(f0, f1); json.dump(st, open(BK / f'{st["key"]}.json', "w"))
+    except Exception: pass
 
 
 def main():
@@ -158,11 +185,22 @@ def main():
     jobs = int(sys.argv[sys.argv.index("--jobs") + 1]) if "--jobs" in sys.argv else 1
     E = json.load(open(ein)); rp = OUT / "report.json"; rep = json.load(open(rp)) if rp.exists() else {}
     todo = []
+    # dùng lại bản đã xử lý theo nội dung (clip, in, out, preset), không theo id: thêm/bớt đoạn làm id dời đi cũng không phải làm lại
+    BK = OUT / "bykey"; BK.mkdir(exist_ok=True)
+    for sid, r0 in list(rep.items()):
+        f0 = OUT / f"{sid}.mp4"
+        if r0.get("key") and f0.exists() and not (BK / f'{r0["key"]}.mp4').exists():
+            try: os.link(f0, BK / f'{r0["key"]}.mp4'); json.dump(r0, open(BK / f'{r0["key"]}.json', "w"))
+            except Exception: pass
     for sg in E["segments"]:
         c = CL[sg["clip"]]; src = c["path"]
         key = hashlib.sha1(json.dumps([sg["clip"], sg["in"], sg["out"], preset_for(sg), "v4"] + (["noblur"] if noblur(sg) else []), sort_keys=True).encode()).hexdigest()[:12]
         sg["_key"] = key; sg["_src"] = src
         r0 = rep.get(sg["id"], {})
+        if not (only and sg["id"] not in only) and rep.get(sg["id"], {}).get("key") != key and (BK / f"{key}.mp4").exists():
+            f1 = OUT / f'{sg["id"]}.mp4'
+            if f1.exists(): f1.unlink()
+            os.link(BK / f"{key}.mp4", f1); rep[sg["id"]] = json.load(open(BK / f"{key}.json")); continue
         if (only and sg["id"] not in only) or (rep.get(sg["id"], {}).get("key") == key and (OUT / f'{sg["id"]}.mp4').exists()): continue
         todo.append((sg, src, float(sg["in"]), float(sg["out"]), c.get("w") or 1920, c.get("h") or 1080))
     print("cần xử lý", len(todo), "đoạn", flush=True); t0 = time.time()
@@ -171,10 +209,11 @@ def main():
         with ProcessPoolExecutor(jobs) as ex:
             for k, (sid, st) in enumerate(ex.map(worker, todo)):
                 sg = next(x for x in E["segments"] if x["id"] == sid); st["key"] = sg["_key"]; st["src"] = [sg["clip"], sg["in"], sg["out"]]; rep[sid] = st
+                bk_save(sid, st)
                 json.dump(rep, open(rp, "w"), indent=0); print(f"[{k+1}/{len(todo)}] {sid} {sg['label']} {st} {time.time()-t0:.0f}s", flush=True)
     else:
         for k, j in enumerate(todo):
-            sid, st = worker(j); st["key"] = j[0]["_key"]; st["src"] = [j[0]["clip"], j[0]["in"], j[0]["out"]]; rep[sid] = st
+            sid, st = worker(j); st["key"] = j[0]["_key"]; st["src"] = [j[0]["clip"], j[0]["in"], j[0]["out"]]; rep[sid] = st; bk_save(sid, st)
             json.dump(rep, open(rp, "w"), indent=0); print(f"[{k+1}/{len(todo)}] {sid} {j[0]['label']} {st} {time.time()-t0:.0f}s", flush=True)
     for sg in E["segments"]:
         sg.pop("_key", None); sg.pop("_src", None)
