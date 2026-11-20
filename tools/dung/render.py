@@ -445,10 +445,24 @@ def place_v(cim, src, a, sp, s0, s1, W, H, chain, placed):
             if p0 < s1 and p1 > s0 and x0 < pb[2] + 12 and x1 > pb[0] - 12 and y0 < pb[3] + 12 and y1 > pb[1] - 12: return True
         return False
     if not bad(bb[1]): return cim
-    for y in sorted(range(int(H * 0.075), int(H * 0.62) - h_, 6), key=lambda y: abs(y - bb[1])):
+    ys = sorted(range(int(H * 0.075), int(H * 0.635) - h_, 6), key=lambda y: abs(y - bb[1]))
+    for y in ys:
         if not bad(y):
             out = Image.new("RGBA", (W, H), (0, 0, 0, 0)); out.paste(cim, (0, y - bb[1]), cim); return out
+    # không chỗ nào trống hẳn: chọn chỗ đè mặt ít nhất (vùng chân mày tới cằm), ưu tiên dưới cằm
+    def hit(y0):
+        x0, x1, y1 = bb[0], bb[2], y0 + h_; a_ = 0.0
+        for fx0, fy0, fw, fh in faces:
+            if fw < W * 0.05: continue
+            ox = max(0, min(x1, fx0 + fw) - max(x0, fx0)); oy = max(0, min(y1, fy0 + fh) - max(y0, fy0 + fh * 0.22)); a_ += ox * oy
+        for p0, p1, pb in placed:
+            if p0 < s1 and p1 > s0: a_ += 4 * max(0, min(x1, pb[2]) - max(x0, pb[0])) * max(0, min(y1, pb[3]) - max(y0, pb[1]))
+        return a_
+    if ys:
+        y = min(ys, key=lambda y: (hit(y), -y)); PLACE_MISS.append((round(hit(bb[1])), round(hit(y))))
+        out = Image.new("RGBA", (W, H), (0, 0, 0, 0)); out.paste(cim, (0, y - bb[1]), cim); return out
     return cim
+PLACE_MISS = []
 
 def seg_render(i, sg, clips, W, H, fx, tmp):
     src = sg.get("path") or clips[sg["clip"]]["path"]; info = clips.get(sg.get("clip"), {})
