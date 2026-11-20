@@ -1284,8 +1284,65 @@ function bindSegList(root, n, v, TL, seekFn){
 }
 
 function stepPost(sb, sc, st, e){
-  sb.innerHTML = `${e.finalV ? `<section class="pub ok"><h3 class="disp">Bản cuối</h3><p>AI đã gửi file 1080p trong chat Claude. Tải về rồi đăng.</p>${e.credits ? `<label class="f" style="margin-top:12px">Ghi công nhạc (dán vào cuối mô tả YouTube và caption TikTok)<textarea readonly style="min-height:120px">${esc(e.credits)}</textarea></label>` : ""}</section>` : ""}<div id="postBox"></div>`;
+  sb.innerHTML = `${e.postV ? `<div id="kitBox"><p class="muted">Đang mở bộ đăng…</p></div>` : e.finalV ? `<section class="pub ok"><h3 class="disp">Bản cuối</h3><p>AI đã gửi file 1080p trong chat Claude. Tải về rồi đăng.</p>${e.credits ? `<label class="f" style="margin-top:12px">Ghi công nhạc (dán vào cuối mô tả YouTube và caption TikTok)<textarea readonly style="min-height:120px">${esc(e.credits)}</textarea></label>` : ""}</section>` : ""}<div id="postBox"></div>`;
+  if (e.postV) postKit($("#kitBox"), sc, st, e);
   renderPost($("#postBox"), sc, st);
+}
+
+/* ---------- Bộ đăng: video Full HD (Drive), thumbnail, caption TikTok, mô tả YouTube ----------
+   AI đưa lên drafts/<tập>/post.enc (mã hoá) + ảnh bìa. File video Full HD quá nặng để để trên web:
+   Pum lưu file AI gửi trong chat Claude rồi chọn ở đây, app tải thẳng lên Google Drive của Pum và giữ link. */
+const KITIMG = {};
+async function kitImg(n, f){
+  const k = n + "/" + f; if (KITIMG[k]) return KITIMG[k];
+  const r = await fetch(`drafts/${n}/post/${f}`, {cache:"no-store"}); if (!r.ok) throw 0;
+  return KITIMG[k] = URL.createObjectURL(new Blob([await window.PUMDECB(await r.arrayBuffer())], {type:"image/jpeg"}));
+}
+async function postKit(box, sc, st, e){
+  const n = sc.n; let K;
+  try{ K = await encJSON(`drafts/${n}/post.enc?v=${e.postV}`); }catch(_){ box.innerHTML = `<p class="notice">Chưa mở được bộ đăng. Bấm Tải lại trên cùng thử.</p>`; return; }
+  const L = e.pubLinks || {};
+  const copy = t => (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Đã chép"), () => toast("Chưa chép được, giữ lâu để chép tay"));
+  const vidRow = (slot, it) => { const l = L[slot], P = GD.prog["pub-" + n + "-" + slot];
+    return `<div class="kitvid">${l ? `<a class="btn rose" href="https://drive.google.com/file/d/${esc(l.id)}/view" target="_blank" rel="noopener">Tải video Full HD</a><span class="small muted">${esc(l.name || "")} · ${fmtSize(l.size) || ""} · trên Google Drive</span>`
+      : P && P.st === "dang" ? `<p class="small"><b>Đang đưa lên Drive… ${P.size ? Math.floor((P.sent || 0) / P.size * 100) : 0}%</b> Giữ màn hình mở.</p>`
+      : `<label class="btn ghost kitpick">Chọn file video để đưa lên Drive<input type="file" accept="video/*" data-pub="${slot}" hidden></label><span class="small muted">File ${esc(it.file || "")} AI đã gửi trong chat Claude. Lưu về máy rồi chọn ở đây, app đưa lên Google Drive và giữ link Full HD cho cả nhóm.</span>`}</div>`; };
+  const card = (slot, it, kind) => `<section class="pub kit ${L[slot] ? "ok" : ""}">
+    <h3 class="disp">${esc(it.head)}</h3>
+    <div class="kitrow">
+      <figure class="kitimg ${kind}"><img alt="${kind === "yt" ? "Thumbnail YouTube" : "Ảnh bìa TikTok"} ${esc(it.head)}" data-img="${esc(it.thumb)}"><figcaption><a href="#" data-dl="${esc(it.thumb)}" data-name="${esc(it.thumbName)}">Tải ${kind === "yt" ? "thumbnail" : "ảnh bìa"}</a></figcaption></figure>
+      <div class="kittext">
+        ${vidRow(slot, it)}
+        ${it.title ? `<label class="f">Tên video<span class="kitcopy"><input type="text" readonly value="${esc(it.title)}"><button class="btn small ghost" type="button" data-copy="${esc(it.title)}">Chép</button></span></label>` : ""}
+        <label class="f">${kind === "yt" ? "Mô tả YouTube (đã có chương, ghi công nhạc, hashtag)" : "Caption TikTok (đã có hashtag và ghi công nhạc)"}<textarea readonly style="min-height:${kind === "yt" ? 360 : 170}px">${esc(it.text)}</textarea></label>
+        <button class="btn small" type="button" data-copy="${esc(it.text)}">Chép ${kind === "yt" ? "mô tả" : "caption"}</button>
+        ${it.tags ? `<label class="f" style="margin-top:12px">Thẻ (tags) YouTube<span class="kitcopy"><input type="text" readonly value="${esc(it.tags)}"><button class="btn small ghost" type="button" data-copy="${esc(it.tags)}">Chép</button></span></label>` : ""}
+        ${it.note ? `<p class="small muted" style="margin-top:8px">${esc(it.note)}</p>` : ""}
+      </div>
+    </div></section>`;
+  const y = K.youtube, items = [["yt", {head:"YouTube · " + (y.label || "tập dài"), thumb:y.thumb, thumbName:`${n}_youtube_thumbnail.jpg`, title:y.title, text:y.desc, tags:(y.tags || []).join(", "), file:y.file, note:y.note}, "yt"]]
+    .concat((K.tiktok || []).map(t => ["tt" + t.n, {head:`TikTok · Phần ${t.n} · ${t.title}`, thumb:t.cover, thumbName:`${n}_tiktok_phan_${t.n}.jpg`, text:t.caption, file:t.file, note:t.note}, "tt"]));
+  box.innerHTML = `<div class="card"><p class="eyebrowless" style="margin-bottom:6px">Bộ đăng · bản ${esc(String(K.v || e.postV))}</p><p class="small">Mỗi video có sẵn file Full HD, ảnh bìa và chữ để dán. Đăng TikTok theo thứ tự Phần 1 → ${(K.tiktok || []).length}.${gdOn() ? ` Drive: ${esc(GD.email)}` : ""}</p>
+    ${gdOn() ? "" : `<button class="btn small ghost" type="button" data-gdc="1" style="margin-top:10px">Nối Google Drive (để đưa video Full HD lên)</button>`}</div>
+    <div class="pubs">${items.map(([s_, it, k]) => card(s_, it, k)).join("")}</div>`;
+  box.querySelectorAll("img[data-img]").forEach(im => kitImg(n, im.dataset.img).then(u => { im.src = u; }).catch(() => { im.alt = "Chưa mở được ảnh"; }));
+  box.querySelectorAll("[data-dl]").forEach(a => a.onclick = async ev => { ev.preventDefault(); try{ const u = await kitImg(n, a.dataset.dl); const x = document.createElement("a"); x.href = u; x.download = a.dataset.name; document.body.appendChild(x); x.click(); x.remove(); }catch(_){ toast("Chưa tải được ảnh"); } });
+  box.querySelectorAll("[data-copy]").forEach(b => b.onclick = () => copy(b.dataset.copy));
+  const gc = box.querySelector("[data-gdc]"); if (gc) gc.onclick = async () => { await gdConnect(); postKit(box, sc, st, ed(n)); };
+  box.querySelectorAll("input[data-pub]").forEach(inp => inp.onchange = async () => {
+    const f = inp.files && inp.files[0]; if (!f) return; const slot = inp.dataset.pub;
+    if (!gdOn()){ await gdConnect(); if (!gdOn()) return; }
+    const job = {id:"pub-" + n + "-" + slot, file:f, path:["Bản đăng", String(n)], title:slot === "yt" ? "YouTube" : "TikTok " + slot.slice(2), key:"pub", n};
+    const tick = setInterval(() => { const P = GD.prog[job.id]; const el = inp.closest(".kitvid"); if (P && el) el.innerHTML = `<p class="small"><b>Đang đưa lên Drive… ${P.size ? Math.floor((P.sent || 0) / P.size * 100) : 0}%</b> Giữ màn hình mở.</p>`; }, 700);
+    try{
+      GD.prog[job.id] = {st:"dang", sent:0, size:f.size};
+      const r = await gdUpload(job); LS.set("gdS:" + job.id, ""); GD.prog[job.id] = {st:"xong"};
+      const cur = ed(n).pubLinks || {};
+      await saveEd(n, {pubLinks:Object.assign({}, cur, {[slot]:{id:r.id, name:f.name, size:f.size, at:Date.now()}})}, false);
+      toast("Đã đưa lên Drive"); 
+    }catch(err){ GD.prog[job.id] = {st:"loi"}; toast(err.auth ? "Google cần xác nhận lại, bấm Nối Google Drive" : "Chưa đưa lên được: " + (err.message || "lỗi")); }
+    clearInterval(tick); postKit(box, sc, st, ed(n));
+  });
 }
 
 async function draftDesc(btn, sc, st){

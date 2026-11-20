@@ -483,6 +483,15 @@ body.gdup .toast{bottom:calc(110px + env(safe-area-inset-bottom))}
 .pager button.nx{text-align:right;background:var(--ink);color:var(--paper)}.pager button.nx small{color:var(--tape)}
 .pager button:disabled{visibility:hidden}
 .pubs{counter-reset:pub}
+.kit .kitrow{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+@media(min-width:760px){.kit .kitrow{grid-template-columns:260px minmax(0,1fr)}}
+.kitimg{margin:0}.kitimg img{display:block;width:100%;border-radius:12px;background:var(--blush)}
+.kitimg.yt img{aspect-ratio:16/9;object-fit:cover}.kitimg.tt img{aspect-ratio:9/16;object-fit:cover;max-width:220px}
+.kitimg figcaption{margin-top:8px}.kitimg figcaption a{display:inline-flex;align-items:center;min-height:44px;font-weight:800;color:var(--berry)}
+.kitvid{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px}
+.kitvid .btn{min-height:44px}.kitpick{cursor:pointer}
+.kitcopy{display:flex;gap:8px;align-items:center}.kitcopy input{flex:1;min-width:0}
+.kit textarea[readonly]{white-space:pre-wrap}
 .pubs .pub>h3::before{counter-increment:pub;content:counter(pub);display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--tape);color:var(--ink);font-size:15px;font-style:normal;margin-right:10px;vertical-align:3px;font-family:Nunito,sans-serif}
 .pubs .pub.ok>h3::before{content:"✓";background:var(--ok);color:#fff}
 .btn.small{min-height:40px}
@@ -579,6 +588,6 @@ details.prev{margin-top:48px;color:var(--muted)}details.prev>summary{cursor:poin
   document.addEventListener("visibilitychange", function(){ if (!document.hidden) check(); });
   setTimeout(check, 5000);
 })();
-</script><script>window.PUMV='95073711'</script><script src="gate.js?v=95073711"></script>
+</script><script>window.PUMV='95073712'</script><script src="gate.js?v=95073712"></script>
 </body>
 </html>

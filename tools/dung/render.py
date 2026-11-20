@@ -183,17 +183,17 @@ def card(text, style, W, H, fx, where=None):
         if V and "\n" not in t_ and " · " in t_ and d0.textlength(t_, font=f_) > maxw: return t_.replace(" · ", " ·\n", 1)
         return t_
     if st == "tape":
-        f = F(fx["inter"], int((78 if V else 84) * S)); lines = wrap(d0, vbreak(text, f, W * 0.84), f, W * (0.84 if V else 0.66))
+        f = F(fx["inter"], int((78 if V else 84) * S)); lines = wrap(d0, vbreak(text, f, W * 0.70), f, W * (0.70 if V else 0.66))
         b = block(lines, f, (int(42 * S), int(20 * S)), COL["tape"], COL["cocoa"], int(8 * S), 2)
         if V: pos = (int(W * 0.06), int(H * 0.115))
         else: pos = (int(W * 0.06), int(H * 0.10)) if where != "tr" else (int(W * 0.94) - b.width + 40, int(H * 0.08))
     elif st == "postcard":
-        f = F(fx["play"], int(64 * S), 700); lines = wrap(d0, vbreak(text, f, W * 0.8), f, W * (0.8 if V else 0.55))
+        f = F(fx["play"], int(64 * S), 700); lines = wrap(d0, vbreak(text, f, W * 0.70), f, W * (0.70 if V else 0.55))
         b = block(lines, f, (int(36 * S), int(22 * S)), COL["paper"], COL["cocoa"], int(10 * S), -3)
         if V: pos = (int(W * 0.06), int(H * 0.20))
         else: pos = (int(W * 0.06), int(H * 0.70) - (len(lines) - 1) * int(60 * S)) if where != "top" else (int(W * 0.06), int(H * 0.10))
     elif st == "label":
-        f = F(fx["nunito"], int((52 if V else 60) * S), 900); lines = wrap(d0, vbreak(text.upper(), f, W * 0.86), f, W * 0.86) if V else [text.upper()]
+        f = F(fx["nunito"], int((52 if V else 60) * S), 900); lines = wrap(d0, vbreak(text.upper(), f, W * 0.74), f, W * 0.74) if V else [text.upper()]
         b = block(lines, f, (int(34 * S), int(13 * S)), COL["tape"], COL["cocoa"], int(40 * S), 0)
         pos = (int(W * 0.06), int(H * (0.085 if V else 0.08)))
     elif st == "price":
@@ -301,7 +301,7 @@ def doodle_pos(face, W, H, size, j, has_text, used=(), boxes=()):
     return int(best[1]), int(best[2])
 
 SEG_VER = "s1"
-VSEG_VER = "v3"  # chỉ khung dọc: đổi khi sửa cách cắt cửa sổ 9:16 / đặt chữ né mặt (không làm mất kho đoạn của bản ngang)
+VSEG_VER = "v4"  # chỉ khung dọc: đổi khi sửa cách cắt cửa sổ 9:16 / đặt chữ né mặt (không làm mất kho đoạn của bản ngang)
 DOODLE_VER = "d2"  # đổi khi sửa cách đặt/vẽ doodle: chỉ dựng lại các đoạn có doodle  # đổi khi sửa cách dựng một đoạn (seg_render, doodle, chữ) để không dùng lại bản cũ
 
 def vcx(src, a, b, vw, vh, sg):
@@ -440,6 +440,7 @@ def place_v(cim, src, a, sp, s0, s1, W, H, chain, placed):
         for fx0, fy0, fw, fh in faces:  # vùng giữ: từ chân mày tới cằm (chữ được phép nằm trên tóc, trán, mũ)
             if fw < W * 0.05: continue
             if x0 < fx0 + fw * 1.08 and x1 > fx0 - fw * 0.08 and y0 < fy0 + fh * 1.08 and y1 > fy0 + fh * 0.22: return True
+        if x1 > W * 0.865 and y1 > H * 0.40 and y0 < H * 0.80: return True  # dải nút bên phải của TikTok
         for p0, p1, pb in placed:
             if p0 < s1 and p1 > s0 and x0 < pb[2] + 12 and x1 > pb[0] - 12 and y0 < pb[3] + 12 and y1 > pb[1] - 12: return True
         return False
@@ -631,9 +632,9 @@ def main():
         if not tr or i == 0: continue
         wf = REPO / "fx" / ("youtube" if W > H else "tiktok") / f"chuyen_canh_{tr}.webm"
         if not wf.exists(): continue
-        at = max(0, tl[i]["start"] - 0.35)
+        at = max(0, tl[i]["start"] - 0.55)  # chuyển cảnh 0,8 s, xong 0,25 s sau chỗ nối: không đè lúc Pum bắt đầu nói
         vin += ["-itsoffset", f"{at:.3f}", "-c:v", "libvpx-vp9", "-i", str(wf)]
-        fc.append(f"[{k}:v]scale={W}:{H},format=rgba,setpts=PTS-STARTPTS+{at:.3f}/TB[tr{k}]"); fc.append(f"[{last}][tr{k}]overlay=0:0:eof_action=pass[x{k}]"); last = f"x{k}"; k += 1
+        fc.append(f"[{k}:v]scale={W}:{H},format=rgba,setpts=(PTS-STARTPTS)/1.25+{at:.3f}/TB[tr{k}]"); fc.append(f"[{last}][tr{k}]overlay=0:0:eof_action=pass[x{k}]"); last = f"x{k}"; k += 1
     assp = str(tmp / "subs.ass").replace(":", "\\:")
     fc.append(f"[{last}]ass='{assp}'[vout]")
     # âm: tiếng gốc + nhạc (tự hạ khi có lời) + hiệu ứng

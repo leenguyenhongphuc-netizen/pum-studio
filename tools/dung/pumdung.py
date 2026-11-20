@@ -11,6 +11,7 @@ Chạy:  PUM_PASS=... python3 -I pumdung.py <lệnh> [tham số]
   board  <ep> <board.json> [lời nhắn]     đưa hướng dựng lên app (bước 3)
   draft  <ep> <ver> [lời nhắn]            đưa bản nháp nhẹ + dòng thời gian lên app (bước 4)
   final  <ep> <ver> [lời nhắn]            báo đã có bản cuối (gửi file 1080p trong chat)
+  post   <ep> <kit.json> <thư_mục_ảnh> [lời nhắn]   bộ đăng ở bước 5: tên, mô tả YouTube, caption TikTok, ảnh bìa
 Không có mật khẩu trong file này: đặt biến môi trường PUM_PASS.
 """
 import json, os, re, subprocess, sys, hashlib, base64, time, urllib.request
@@ -304,6 +305,16 @@ def cmd_draft(ep, ver, msg=""):
                              "status": "nhap", "credits": tl.get("credits", ""), "agentMsg": msg or "Có bản nháp mới ở bước 4."})
     print("bản nháp v%s: %.0fs, %.1f MB" % (ver, tl["dur"], len(pv) / 1e6))
 
+def cmd_post(ep, kit_f, img_dir, msg=""):
+    """bộ đăng (bước 5): post.enc (tên, mô tả YouTube, caption TikTok, tên file) + ảnh bìa mã hoá trong drafts/<ep>/post/"""
+    kit = json.loads(Path(kit_f).read_text()); d = REPO / "drafts" / str(ep); pd = d / "post"; pd.mkdir(parents=True, exist_ok=True)
+    for old in pd.glob("*.enc"): old.unlink()
+    for img in sorted(Path(img_dir).glob("*.jpg")): (pd / (img.name + ".enc")).write_bytes(enc(img.read_bytes()))
+    (d / "post.enc").write_bytes(enc(json.dumps(kit, ensure_ascii=False).encode()))
+    _git("add", "-A", str(pd)); _publish([d / "post.enc", pd], f"Bộ đăng tập {ep} bản {kit.get('v')}")
+    merge("vids", f"e_{ep}", {"postV": int(kit.get("v", 1)), "postAt": int(time.time()*1000), "agentMsg": msg or "Có bộ đăng ở bước 5: video Full HD, ảnh bìa, caption."})
+    print("bộ đăng bản", kit.get("v"))
+
 def cmd_final(ep, ver, msg=""):
     tl = json.loads((WORK / str(ep) / f"v{ver}" / "timeline.json").read_text())
     merge("vids", f"e_{ep}", {"finalV": int(ver), "status": "xong", "credits": tl.get("credits", ""), "agentMsg": msg or "Bản cuối đã gửi trong chat Claude."}); print("đã báo bản cuối")
@@ -313,4 +324,4 @@ if __name__ == "__main__":
     if not a: print(__doc__); sys.exit()
     {"fetch": lambda: cmd_fetch(a[1]), "drive": lambda: cmd_drive(a[1]), "vo": lambda: cmd_vo(a[1]), "place": lambda: cmd_place(a[1], a[2], a[3]), "match": lambda: cmd_match(a[1], a[2]), "scan": lambda: cmd_scan(a[1], *(a[2:3])),
      "sheet": lambda: cmd_sheet(a[1]), "push": lambda: cmd_push(a[1], a[2], a[3]), "status": lambda: cmd_status(a[1], a[2], " ".join(a[3:])),
-     "board": lambda: cmd_board(a[1], a[2], " ".join(a[3:])), "draft": lambda: cmd_draft(a[1], a[2], " ".join(a[3:])), "final": lambda: cmd_final(a[1], a[2], " ".join(a[3:]))}[a[0]]()
+     "board": lambda: cmd_board(a[1], a[2], " ".join(a[3:])), "draft": lambda: cmd_draft(a[1], a[2], " ".join(a[3:])), "final": lambda: cmd_final(a[1], a[2], " ".join(a[3:])), "post": lambda: cmd_post(a[1], a[2], a[3], " ".join(a[4:]))}[a[0]]()
