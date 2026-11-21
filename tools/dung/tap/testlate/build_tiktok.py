@@ -149,7 +149,7 @@ for k, st in enumerate(S):
         s["cx"] = "auto"; s.pop("zoom", None)
         if s["label"] == "Tự pha cà phê": s["cx"] = 0.515  # khung dọc vào phễu và ấm rót, không bám mặt
         if s["label"] == "Đoán món (cảnh chèn)": s["cx"] = 0.47; s["bright"] = 0.05  # biển Mì Hường trọn chữ
-        if s["label"].startswith("Hạt cũng cần nghỉ") and "cảnh chèn" not in s["label"]: s["vzoom"] = 1.3; s["vy"] = 1.0  # nhà kính: mặt Pum thấp, đẩy lên khỏi phụ đề
+        if s["label"].startswith("Hạt cũng cần nghỉ") and "cảnh chèn" not in s["label"]: s["sub_top"] = True  # nhà kính: mặt Pum thấp trong khung, phụ đề lên phía trên (dưới nhãn)
     # dòng thời gian, tiếng hiệu ứng, nhạc
     t = 0.0; sfx = []; music = []; cur = None
     trk = MUS[body[0]["chapter"]]; seen = set(); prev_ch = None

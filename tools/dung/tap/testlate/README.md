@@ -35,3 +35,9 @@ Bài học từ lần chấm độc lập v9 (6,5/10):
 - Một bài nhạc không chạy liền quá ~90 s: nghỉ một đoạn rồi đổi bài (`ALT` trong `build_edl_v5.py`).
 - Ô che mờ dùng `soft_hide` (mờ Gauss có viền mờ dần), không dùng boxblur mảng phẳng.
 - Thumbnail và ảnh bìa cũng phải áp `hide_src` (lấy khung từ nguồn thì không có ô che).
+
+Bài học lượt chấm v11 (6,0/10):
+- Phần lớn clip Pum tự quay (camera trước, góc rộng) bị ngược gương, kể cả cảnh mở tập. Không soi bằng mắt từng đoạn được: chạy `mirror_check.py edl.json` (RapidOCR đọc chữ trên khung gốc và khung lật; khung lật đọc được rõ hơn nhiều thì là ngược gương), rồi lật cả clip (`HFLIP_CLIPS` trong `build_edl_v5.py`). Clip không có chữ thì OCR không kết luận được: để nguyên.
+- Dãy xe máy đỗ có nhiều biển, tay Pum đi qua: cắt khung (`crop`, toạ độ sau khi lật) thay cho ô che lớn.
+- Thẻ hỏi cuối không đổi bài nhạc riêng 6 giây: nhạc chương cuối chạy tiếp.
+- Khoá trùng trong dict `EXTRA_HIDE` làm mất ô che: kiểm trùng khoá trước khi dựng.

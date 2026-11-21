@@ -622,10 +622,12 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         "-map", "[aout]", "-vn", "-c:a", "pcm_s16le", "-ar", str(SR), "-ac", "2", str(outa)])
     return out, dur
 
+WH_ = [1920, 1080]
 def seg_subs(sg, scan, t0):
     """phụ đề lấy từ lời thật trong clip (hoặc lời lồng tiếng), đổi sang giờ của video"""
     if sg.get("subs") is not None:
-        return [(t0 + s, t0 + e, txt) for s, e, txt in sg["subs"]]
+        top = "{\\an8\\pos(%d,%d)}" % (WH_[0] // 2, int(WH_[1] * 0.2)) if sg.get("sub_top") else ""  # mặt Pum thấp trong khung: phụ đề lên trên
+        return [(t0 + s, t0 + e, top + txt) for s, e, txt in sg["subs"]]
     if not sg.get("sub"): return []
     out = []; sp = float(sg.get("speed", 1))
     def take(cid, a, b, off):
@@ -650,7 +652,7 @@ def main():
     ep, edl_p = sys.argv[1], Path(sys.argv[2]); proxy_only = "--proxy-only" in sys.argv
     E = json.loads(edl_p.read_text()); d = WORK / str(ep); ver = E.get("ver", 1)
     out = d / f"v{ver}"; tmp = out / "tmp"; tmp.mkdir(parents=True, exist_ok=True)
-    W, H = E.get("size", [1920, 1080]); fx = fonts()
+    W, H = E.get("size", [1920, 1080]); fx = fonts(); WH_[:] = [W, H]
     m = json.loads((d / "match.json").read_text()); clips = dict(m["clips"])
     for p, i in m.get("unassigned", {}).items(): clips["u:" + hashlib.sha1(p.encode()).hexdigest()[:8]] = {"path": p, **i}
     scan = json.loads((d / "scan.json").read_text()) if (d / "scan.json").exists() else {}

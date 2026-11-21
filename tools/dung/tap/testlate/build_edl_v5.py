@@ -402,7 +402,7 @@ sfx.sort(key=lambda f: f["at"])
 # ================= nhạc =================
 MUS = {"Mở tập": "cheery_monday", "Chương 1 · Bánh canh": "daily_beetle", "Chương 2 · Nhà dài giữa phố": "dream_culture",
        "Chương 3 · Cơm đồng bào": "bossa_antigua", "Chương 4 · Lên farm cà phê": "life_of_riley", "Chương 5 · Đi tìm hoàng hôn": "dreamer",
-       "Chương 6 · Tối · Mì hoành thánh": "daily_beetle", "Cuối tập": "late_night_radio"}
+       "Chương 6 · Tối · Mì hoành thánh": "daily_beetle", "Cuối tập": "daily_beetle"}  # thẻ hỏi cuối: nhạc chạy tiếp, không đổi bài cho 6 giây
 SWITCH = {"Mùa cà phê chín": "dream_culture", "Nếm thử": None, "Đi ngắm hoàng hôn": "dreamer", "Kịp rồi": "late_night_radio"}
 ALT = {"dream_culture": "teller_of_the_tales", "teller_of_the_tales": "dream_culture", "life_of_riley": "carefree", "dreamer": "almost_bliss", "daily_beetle": "jazz_brunch"}
 music = []; cur = None; trk = None; lastch = None
@@ -461,22 +461,28 @@ fix_compounds()
 edl = {"ep": "testlate", "ver": 9, "size": [1920, 1080], "segments": segs, "music": music, "sfx": sfx}
 # che thêm sau khi soát bản 4K (biển số chỉ đọc được ở 4K; máy dò lúc prep chạy ở 1080 nên sót)
 EXTRA_HIDE = {"s21": [{"box": [0.81, 0.16, 0.15, 0.22], "start": 0.0, "end": 12.0}],
-              "s25": [{"box": [0.07, 0.58, 0.09, 0.09], "start": 0.4, "end": 3.2}, {"box": [0.03, 0.57, 0.16, 0.18], "start": 4.9, "end": 8.2}],  # ô nhỏ, né tay Pum
+              "s66": [{"box": [0.645, 0.40, 0.05, 0.05], "start": 0.4, "end": 1.6}],  # biển Civic (toạ độ khung gốc, chưa lật)
+              "s69": [{"box": [0.0, 0.36, 0.30, 0.19], "start": 0.0, "end": 3.8}],  # dãy ô tô đỗ qua cửa kính
               "s30": [{"box": [0.225, 0.43, 0.06, 0.06], "start": 0.0, "end": 4.4}],
               "lt_caphe_1": [{"box": [0.74, 0.0, 0.25, 0.21], "start": 0.0, "end": 1.6}],  # mặt người làm ở xưởng (chấm TikTok)
               "s135": [{"box": [0.0, 0.78, 1.0, 0.22], "start": 2.0, "end": 3.3}],  # máy lia xuống quán đông người
-              "s138": [{"box": [0.525, 0.38, 0.08, 0.09], "start": 4.0, "end": 5.0}],  # biển xe máy sau lưng Pum (hiện ở cuối cảnh)
+              "s138": [{"box": [0.52, 0.38, 0.09, 0.10], "start": 0.0, "end": 5.0}],  # biển xe máy sau lưng Pum (máy dò bám lúc được lúc mất)
               "s22": [{"box": [0.0, 0.12, 0.13, 0.36], "start": 0.0, "end": 2.0}],  # cô gái lạ ở mép trái quán bánh canh
               "s33": [{"box": [0.91, 0.39, 0.08, 0.09], "start": 14.7, "end": 15.8}, {"box": [0.83, 0.39, 0.09, 0.09], "start": 15.4, "end": 16.6}],
               "s61": [{"box": [0.01, 0.48, 0.13, 0.09], "start": 0.0, "end": 1.3}, {"box": [0.14, 0.47, 0.12, 0.08], "start": 1.0, "end": 4.0}],
               "s139": [{"box": [0.83, 0.47, 0.14, 0.11], "start": 0.0, "end": 5.0}],
-              "s140": [{"box": [0.83, 0.47, 0.14, 0.11], "start": 0.0, "end": 5.0}],
-              "s141": [{"box": [0.83, 0.47, 0.14, 0.11], "start": 0.0, "end": 5.0}]}
-PLATE_YMIN = {"s25": 0.4, "s26": 0.4}  # biển số nhà 52/11 trên cao bị máy dò tưởng biển xe
-HFLIP = {"s25", "s28", "s30"}  # quay camera trước bị ngược gương (chữ biển hiệu đọc ngược) — chấm độc lập bản 9
+              "s140": [{"box": [0.83, 0.47, 0.14, 0.11], "start": 0.0, "end": 5.0}, {"box": [0.135, 0.455, 0.10, 0.085], "start": 0.0, "end": 5.0}],
+              "s141": [{"box": [0.83, 0.47, 0.14, 0.11], "start": 0.0, "end": 5.0}, {"box": [0.135, 0.455, 0.10, 0.085], "start": 0.0, "end": 5.0}]}
+PLATE_YMIN = {"s25": 0.4, "s26": 0.4}
+CROP = {"s25": [0.0, 0.08, 0.70, 0.70]}  # bỏ dãy xe máy đỗ bên phải (nhiều biển số, tay Pum đi qua) — toạ độ sau khi lật  # biển số nhà 52/11 trên cao bị máy dò tưởng biển xe
+HFLIP = {"s25", "s28", "s30"}
+# soát bằng OCR (ocr/mirror_check.py: đọc chữ trên khung gốc và khung lật, khung lật đọc được hơn thì là ngược gương): lật cả clip
+HFLIP_CLIPS = {"1J37JAjvx1xWMjDXmQ07xmInNse9UZ70-", "1CZF17kqxuGc14a8mXuO8uWKvQlZvkDiv", "1yLnUP9JTatrw9QIYnkx2plVDNwdspaWr", "1nP79BZVNTuXReavchy2ewEwfbU65JZTJ"}
+HFLIP_IDS = {"s03", "s46", "s48"}  # clip iCloud (mã clip dài), xác định theo đoạn  # quay camera trước bị ngược gương (chữ biển hiệu đọc ngược) — chấm độc lập bản 9
 for sg_ in edl["segments"]:
-    if sg_["id"] in HFLIP: sg_["hflip"] = True
+    if sg_["id"] in HFLIP or sg_["clip"] in HFLIP_CLIPS or sg_["id"] in HFLIP_IDS: sg_["hflip"] = True
     if sg_["id"] in PLATE_YMIN: sg_["plate_ymin"] = PLATE_YMIN[sg_["id"]]
+    if sg_["id"] in CROP: sg_["crop"] = CROP[sg_["id"]]
     for h_ in EXTRA_HIDE.get(sg_["id"], []):
         if h_ not in sg_.setdefault("hide_src", []): sg_["hide_src"].append(h_)
 json.dump(edl, open("/home/claude/pumdung/testlate/edl_v5.json", "w"), ensure_ascii=False, indent=1)
