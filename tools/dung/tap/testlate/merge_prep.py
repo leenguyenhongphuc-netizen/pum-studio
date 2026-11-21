@@ -2,7 +2,8 @@
 python3 merge_prep.py edl_moi.json edl_ra.json -> in các đoạn chưa có bản prep"""
 import json, sys, os
 new, out = sys.argv[1:3]
-P = "/home/claude/pumdung/testlate/prep"
+import os
+P = os.environ.get("PREP_DIR", "/home/claude/pumdung/testlate/prep")
 E = json.load(open(new)); rep = json.load(open(P + "/report.json"))
 by = {}
 for sid, r in rep.items():

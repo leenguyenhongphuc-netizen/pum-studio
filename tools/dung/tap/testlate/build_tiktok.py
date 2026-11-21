@@ -68,7 +68,7 @@ def hook(parts, tape, label=None, subs=None, label_end=3.0):
     for k, s in enumerate(segs):  # băng chữ (và nhãn) kéo liền qua các mảnh
         L = s["out"] - s["in"]
         tp = {"style": "tape", "text": tape, "start": 0.1 if k == 0 else 0.0, "end": round(L, 2), "cont_in": k > 0, "cont_out": k < len(segs) - 1}
-        if label: tp["pos"] = TAPE_Y_LABEL
+        if label: tp["pos"] = TAPE_POS.get(tape, TAPE_Y_LABEL)
         s["text"].insert(0, tp)
         if label and acc < label_end:
             s["text"].insert(0, {"style": "label", "text": label, "start": round(max(0.1 - acc, 0), 2), "end": round(min(label_end - acc, L), 2),
@@ -77,6 +77,7 @@ def hook(parts, tape, label=None, subs=None, label_end=3.0):
     segs[0]["_sfx"] = [{"name": "swoosh", "at": 0.15, "vol": 0.45}]
     return segs
 
+TAPE_POS = {"Kịp hoàng hôn không đây?": 0.58}  # hook có mặt Pum chiếm nửa trên khung: đặt băng dưới mặt
 TAPE_Y_LABEL = 0.165  # khung dọc: băng chữ hook nằm dưới nhãn series (nhãn ở 8,5% chiều cao)
 SERIES = "Đi đâu thử đó"
 
@@ -87,7 +88,7 @@ S.append(dict(n=1, title="Dậy trễ đi ăn bánh canh", tt="Dậy trễ\nđi 
               # "Mà hôm nay dậy trễ quá nên hết sườn rồi nha mọi người," (cắt ở khoảng nghỉ trước "chỉ còn…")
               hook=[(_s21, 1.76, 5.25)], hook_subs=[[0.05, 3.45, "Mà hôm nay dậy trễ quá nên hết sườn rồi nha mọi người"]],
               tape="Dậy trễ là… hết sườn!",
-              body=rng("Hook", "Biển buôn", skip=("Thú nhận", "Xem trước cả ngày"))))  # vào thẳng chuyện bánh canh
+              body=rng("Hook", "Biển buôn", skip=("Thú nhận", "Xem trước cả ngày", "Tượng đài"))))  # vào thẳng chuyện bánh canh
 S.append(dict(n=2, title="Buôn Ê Đê ngay giữa phố", tt="Buôn Ê Đê\nngay giữa phố",
               hook=[(find("Tưởng người Nhật"), 0.0, 2.7)], tape="Pum bị tưởng là người Nhật?!",
               body=rng("Biển buôn", "Đi ăn trưa")))
@@ -121,7 +122,7 @@ for k, st in enumerate(S):
     segs = []
     hk = hook(st["hook"], st["tape"], label=f"{SERIES} · {st['n']}/{len(S)}", subs=st.get("hook_subs"))
     segs += hk
-    body = [full(x) for x in st["body"]]
+    body = [sub(x, 8.55, None, newid=x) if st["n"] == 1 and SEG[IDX[x]]["label"] == "Dậy trễ" else full(x) for x in st["body"]]  # phần 1: chỉ giữ câu "dậy trễ rồi"
     for s in body:  # nhãn series đã có ở hook
         s["text"] = [x for x in s.get("text", []) if not (x["style"] == "label" and x["text"] == SERIES)]
     body[0].pop("trans", None); body[0]["_sfx"] = [f for f in body[0]["_sfx"] if f["name"] != "whoosh"] + [{"name": "whoosh", "at": -0.25, "vol": 0.35}]
@@ -129,11 +130,14 @@ for k, st in enumerate(S):
     if k + 1 < len(S):
         nx = S[k + 1]
         tz = hook(nx["hook"], f"Phần {nx['n']} · " + nx.get("tt", nx["title"]), subs=nx.get("hook_subs"))
-        tz[0]["trans"] = "bang_hong"; tz[0]["_sfx"] = [{"name": "whoosh", "at": -0.25, "vol": 0.35}, {"name": "ding", "at": 0.3, "vol": 0.35}]
+        tz[0]["_sfx"] = [{"name": "whoosh", "at": -0.25, "vol": 0.35}, {"name": "ding", "at": 0.3, "vol": 0.35}]
         for s in tz: s["id"] = "next_" + s["id"]
         segs += tz
     else:
-        q = full(find("Câu hỏi cuối")); q["trans"] = "bang_hong"; q["_sfx"] = [{"name": "sparkle", "at": 0.4, "vol": 0.4}]
+        q = full(find("Câu hỏi cuối")); q["_sfx"] = [{"name": "sparkle", "at": 0.4, "vol": 0.4}]
+        pm = full(find("Pum ăn mì"))  # nền thẻ hỏi: cảnh tô mì của chính phần này
+        for k_ in ("path", "clip", "in", "out", "src_clip", "src_in", "src_out", "crop"): q[k_] = pm.get(k_)
+        q["audio"] = "low"; q["out"] = round(min(float(q["out"]), float(pm["in"]) + 5.0), 3) if q.get("in") is not None else q["out"]
         for x in q["text"]:
             if x["style"] == "question": x["text"] = "Ở chỗ bạn có quán mì hoành thánh nào ngon không?"
         segs.append(q)
@@ -164,7 +168,7 @@ for k, st in enumerate(S):
     for m in music:
         m["vol"] = {"late_night_radio": 0.15}.get(m["track"], 0.2)
     sfx.sort(key=lambda f: f["at"])
-    ed = {"ep": "testlate", "ver": 100 + st["n"], "size": [1080, 1920], "segments": segs, "music": music, "sfx": sfx,
+    ed = {"ep": "testlate", "ver": int(__import__("os").environ.get("TT_BASE", "100")) + st["n"], "size": [1080, 1920], "segments": segs, "music": music, "sfx": sfx,
           "title": f"Phần {st['n']} · {st['title']}"}
     json.dump(ed, open(OUT / f"tt{st['n']}.json", "w"), ensure_ascii=False, indent=1)
     print(f"Phần {st['n']} · {st['title']}: {len(segs)} đoạn, {t:.1f} s, hook {sum(s['out']-s['in'] for s in hk):.1f} s")

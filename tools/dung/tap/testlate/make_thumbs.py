@@ -10,8 +10,21 @@ OUT = Path(sys.argv[1]); OUT.mkdir(parents=True, exist_ok=True)
 D = Path("/home/claude/pumdung/testlate"); fx = R.fonts()
 COC = (57, 38, 48); TAPE = (255, 208, 227); WHITE = (255, 255, 255)
 
-def grab(src, t, vf="scale=1920:1080"):
-    raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t:.2f}", "-i", src, "-frames:v", "1", "-vf", vf, "-f", "image2pipe", "-vcodec", "png", "-"], capture_output=True).stdout
+def hides(sg, tr, vw, vh):
+    """các ô che nguồn (hide_src) đang hiệu lực ở giây tr của đoạn, dạng chuỗi filter_complex"""
+    fc, last = [], "0:v"
+    for j, h in enumerate(sg.get("hide_src", [])):
+        if not (float(h.get("start", 0)) <= tr <= float(h.get("end", 1e6))): continue
+        x, y, w, hh = h["box"]; bx, by = int(x * vw) // 2 * 2, int(y * vh) // 2 * 2
+        bw, bh = max(16, int(w * vw) // 2 * 2), max(16, int(hh * vh) // 2 * 2)
+        fc.append(R.soft_hide(last, f"q{j}", f"q{j}", bx, by, bw, bh, vw, vh, 0, 1e6)); last = f"q{j}"
+    return fc, last
+
+def grab(src, t, vf="scale=1920:1080", hd=None):
+    if hd and hd[0]:
+        fc, last = hd; flt = ["-filter_complex", ";".join(fc) + f";[{last}]{vf}[out]", "-map", "[out]"]
+    else: flt = ["-vf", vf]
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t:.2f}", "-i", src, "-frames:v", "1"] + flt + ["-f", "image2pipe", "-vcodec", "png", "-"], capture_output=True).stdout
     import io; return Image.open(io.BytesIO(raw)).convert("RGB")
 
 def tape(text, size, pad=(34, 16), angle=-2, bg=TAPE, fg=COC, font="inter"):
@@ -33,8 +46,10 @@ def big(text, size, fill=WHITE, stroke=COC, sw=10):
     return im
 
 # ---------- YouTube 1280x720 ----------
-E = {s["label"]: s for s in json.load(open(D / "edl_v8m.json"))["segments"]}
-fr = grab(E["Nếm thử"]["path"], 0.7).resize((1280, 720), Image.LANCZOS)
+import os
+E = {s["label"]: s for s in json.load(open(os.environ.get("THUMB_EDL", str(D / "edl_v8m.json"))))["segments"]}
+TT = Path(os.environ.get("TT_DIR", str(D / "tt")))
+_s = E["Nếm thử"]; fr = grab(_s["path"], 0.7, ("hflip," if _s.get("hflip") else "") + "scale=1920:1080", hides(_s, 0.7, 3840, 2160)).resize((1280, 720), Image.LANCZOS)
 fr = ImageEnhance.Brightness(fr).enhance(1.04)
 im = fr.convert("RGBA")
 g = Image.new("L", (1280, 720), 0); gd = ImageDraw.Draw(g)
@@ -48,11 +63,12 @@ im.convert("RGB").save(OUT / "youtube_thumb.jpg", quality=92)
 
 # ---------- TikTok 1080x1920: khung đầu của hook + băng hook + nhãn phần ----------
 for n in range(1, 8):
-    T = json.load(open(D / "tt" / f"tt{n}.json")); sg = T["segments"][0]
+    T = json.load(open(TT / f"tt{n}.json")); sg = T["segments"][0]
     src = sg["path"]; a, b = float(sg["in"]), float(sg["out"])
-    keys = R.vtrack(src, a, b, 1920, 1080, sg)
+    vw, vh = map(int, subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", src], capture_output=True, text=True).stdout.strip().split(",")[:2])
+    keys = R.vtrack(src, a, b, vw, vh, sg)
     t = a + min(0.6, (b - a) / 2)
-    fr = grab(src, t, R.vfit([(0.0, R.c_at(keys, t - a))], 1080, 1920)).convert("RGBA")
+    fr = grab(src, t, ("hflip," if sg.get("hflip") else "") + R.vfit([(0.0, R.c_at(keys, t - a))], 1080, 1920), hides(sg, t - a, vw, vh)).convert("RGBA")
     tp = next(x["text"] for x in sg["text"] if x["style"] == "tape")
     lab = R.card(f"Phần {n}/7 · Đi đâu thử đó", "label", 1080, 1920, fx, 0.135)
     tap = R.card(tp, "tape", 1080, 1920, fx, 0.63)

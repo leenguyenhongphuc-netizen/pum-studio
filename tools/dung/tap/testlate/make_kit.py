@@ -1,6 +1,7 @@
 """Bộ đăng (bước 5 trong app): tên + mô tả YouTube có chương thật, caption TikTok từng phần.
 python3 make_kit.py <bản ngang> <kit.json>"""
-import json, sys, re
+import json, sys, re, os
+TT_BASE = int(os.environ.get("TT_BASE", "100"))
 from pathlib import Path
 D = Path("/home/claude/pumdung/testlate"); ver = sys.argv[1]; out = Path(sys.argv[2])
 TL = json.load(open(D / f"v{ver}" / "timeline.json"))
@@ -47,7 +48,7 @@ for n, blk in enumerate(cap, 1):
     lines = [l for l in blk.strip().split("\n")]
     title = lines[0].split(" · ", 1)[1]; text = "\n".join(lines[1:]).strip()
     if n == 7: text = text.replace("Bạn thuộc phe cà phê hay phe ca cao như Pum?", "Ở chỗ bạn có quán mì hoành thánh nào ngon không?")
-    T = json.load(open(D / f"v10{n}" / "timeline.json"))
+    T = json.load(open(D / f"v{TT_BASE + n}" / "timeline.json"))
     tt.append({"n": n, "title": title, "caption": text, "cover": f"tiktok_{n}_cover.jpg.enc", "dur": T["dur"], "file": f"Phan_{n}.mp4 (1080x1920)"})
 kit = {"v": int(ver), "youtube": {"label": "tập dài", "title": "Người Buôn Mê không thích cà phê, về tận farm thử lại | Một ngày ở Buôn Ma Thuột",
        "desc": desc, "tags": ["Buôn Ma Thuột", "Buôn Mê", "vlog Buôn Ma Thuột", "bánh canh Buôn Ma Thuột", "buôn Akô Dhông", "nhà dài Ê Đê", "cơm đồng bào",

@@ -137,6 +137,7 @@ def SP(n, a, b, words, label, ch, **kw):
                       for x in text if x["start"] < hi - 0.05 and x["end"] > lo + 0.05]
         if first: sg.update(extra)
         elif "crop" in extra and cut is None: sg["crop"] = extra["crop"]
+        if extra.get("hflip") and cut is None: sg["hflip"] = True  # camera trước quay lật gương: lật lại cho chữ đọc xuôi
         if cut is None and hide:  # che trên khung nguồn: giờ tính từ a (giờ nguồn), chia về từng mảnh
             r0 = src0 - a; hs = []
             for h in hide:
@@ -199,7 +200,7 @@ T = lambda style, text, s, e: {"style": style, "text": text, "start": s, "end": 
 
 # ================= MỞ TẬP =================
 C = "Mở tập"
-SP(168, 2.3, 11.3, "Thơm quá mọi người ơi! Ơ, nó đắng!", "Teaser", C, skip=[(3.55, 9.85)], text=[T("tape", "Hôm nay Pum thử cà phê…", 0.1, 2.6)])
+SP(168, 2.3, 3.55, "Thơm quá mọi người ơi!", "Teaser", C, text=[T("tape", "Hôm nay Pum thử cà phê…", 0.1, 1.2)])  # giữ kết quả "đắng" cho đoạn nếm thử
 SP(61, 3.9, 6.5, "Ai cũng biết Pum là người Buôn Ma Thuột rồi đúng không?", "Hook", C, text=[T("label", "Đi đâu thử đó", 0.2, 2.5)])
 SP(63, 0.0, 12.75, "Đáng lẽ hôm nay 5, 6 giờ là em phải dậy để quay vlog một ngày của em ở Buôn Ma Thuột, người con của Buôn Ma Thuột sẽ như thế nào. Nhưng mà hôm nay em đã dậy trễ rồi mọi người ơi. Bây giờ là 9 giờ rồi.",
    "Dậy trễ", C, text=[T("tape", "Một ngày ở Buôn Ma Thuột", 3.4, 8.4), T("tape", "Dậy trễ mất rồi!", 9.0, 12.5)])
@@ -216,8 +217,8 @@ SP(50, 0.0, 22.3, "Thường thường buổi sáng ở Buôn Ma Thuột thì Pu
    "Món Pum thèm", C, trans="bang_hong", cuts=[(14.4, 47, 0.3, 3.4), (17.8, 46, 4.2, 4.5)], text=[T("label", "Món Pum thèm mỗi lần xa nhà", 6.4, 9.8)])
 BR(48, 0.5, 3.3, "Tô bánh canh", C, text=[dict(T("postcard", "Bánh canh · buổi sáng", 0.1, 2.7), pos="top")])
 SP(149, 0.6, 16.8, "Ở trong tô này sẽ có gà xé, má heo và sườn. Mà hôm nay dậy trễ quá nên hết sườn rồi nha mọi người, chỉ còn gà xé với lại má heo thôi.",
-   "Hết sườn vì dậy trễ", C, cuts=[(3.0, 47, 4.0, 3.0)], text=[T("label", "Dậy trễ = hết sườn", 9.5, 13.5)])
-SP(150, 0.5, 10.1, "Thường thường là sẽ có 2 cách ăn cho mọi người: ăn chung, còn đây là ăn riêng, mọi người sẽ để riêng đồ ăn ra.", "Hai cách ăn", C)
+   "Hết sườn vì dậy trễ", C, cuts=[(3.0, 47, 4.0, 3.0)], text=[T("label", "Dậy trễ = hết sườn", 9.5, 13.5)], hide_src=[{"box": [0.55, 0.26, 0.26, 0.26], "start": 0.0, "end": 30.0}])
+SP(150, 0.5, 10.1, "Thường thường là sẽ có 2 cách ăn cho mọi người: ăn chung, còn đây là ăn riêng, mọi người sẽ để riêng đồ ăn ra.", "Hai cách ăn", C, hide_src=[{"box": [0.60, 0.24, 0.22, 0.26], "start": 0.0, "end": 12.0}])
 BR(45, 2.0, 6.0, "Pum ăn", C, audio="src", crop=[0.42, 0.18, 0.58, 0.58])
 BR(46, 8.5, 11.0, "Cận tô", C)
 SP(38, 0.3, 12.45, "Rồi mọi người ơi, đây là địa chỉ nha. Mọi người lưu ý là chủ nhật nghỉ bán, nên chủ nhật mọi người đừng ghé nha. Chủ nhật mọi người ghé, nghỉ bán, mọi người lại trách Pum đấy nhờ.",
@@ -226,9 +227,9 @@ SP(42, 0.6, 6.35, "Nóng quá mọi người ơi. Thôi mọi người cùng the
 
 # ================= CHƯƠNG 2 · Nhà dài giữa phố =================
 C = "Chương 2 · Nhà dài giữa phố"
-BR(29, 3.0, 6.5, "Biển buôn", C, trans="bang_hong", text=[T("postcard", "Buôn Akô Dhông · cuối đường Trần Nhật Duật", 0.2, 3.3)])
+BR(29, 3.0, 6.5, "Biển buôn", C, trans="bang_hong", text=[T("postcard", "Buôn Akô Dhông ·\ncuối đường Trần Nhật Duật", 0.2, 3.3)])
 SP(145, 0.1, 22.8, "Địa điểm tiếp theo mà Pum muốn cho mọi người biết đó là một cái buôn ở cuối đường Trần Nhật Duật. Ngay ở trong Buôn Ma Thuột vẫn còn một cái buôn, một con đường vẫn còn giữ lại nét nhà sàn, nhà dài. Bây giờ theo chân Pum đi vô trong nha.",
-   "Buôn giữa phố", C, cuts=[(6.6, 141, 8.0, 4.0)], hide_src=[{"box": [0.70, 0.47, 0.12, 0.14], "start": 13.0, "end": 14.8}])  # biển xe máy dưới hiên
+   "Buôn giữa phố", C, cuts=[(6.6, 141, 8.0, 4.0)], hide_src=[{"box": [0.80, 0.47, 0.11, 0.14], "start": 12.6, "end": 15.0}])  # biển xe máy dưới hiên
 BR(20, 2.0, 6.5, "Sân buôn", C)
 SP(18, 7.8, 10.5, "Đây là nhà dài nha mọi người.", "Vô nhà dài", C)
 SP(21, 34.3, 50.8, "Thường thường là ở nhà sàn là sẽ có 2 cái cầu thang để đi lên. Cầu thang mà có 2 cái này là dành cho người phụ nữ để đi lên nha mọi người. Còn cầu thang bên này là sẽ dành cho đàn ông.",
@@ -261,9 +262,9 @@ BR(85, 341.6, 345.0, "Cay", C, audio="src", voice="noi", subs=[[0.15, 3.35, "Đ�
 C = "Chương 4 · Lên farm cà phê"
 SP(165, 0.6, 21.15, "Ăn xong rồi thì bây giờ Pum sẽ đi uống, không phải đi uống cà phê! Ăn xong rồi thì bây giờ Pum sẽ đi qua địa điểm tiếp theo, địa điểm tiếp theo sẽ cho mọi người biết để làm ra được một ly cà phê, những giọt cà phê đó thì sẽ trải qua những công đoạn như thế nào. Let's go!",
    "Đi tiếp lên farm", C, trans="bang_hong", tighten=True, text=[T("label", "Lỡ lời rồi!", 4.0, 6.2)],
-   cuts=[(8.3, 82, 17.5, 3.2), (15.5, "BIG", 1111.5, 3.0)],  # 20 s nói liền: chèn cảnh đường phố và hạt cà phê đang phơi (giữ tiếng Pum)
+   cuts=[(8.3, 82, 18.5, 3.2), (15.5, "BIG", 1111.5, 3.0)], hflip=True,  # 20 s nói liền: chèn cảnh đường phố và hạt cà phê đang phơi (giữ tiếng Pum)
    hide_src=[{"box": [0.0, 0.55, 0.07, 0.13], "start": 19.0, "end": 20.6}]  # biển số xe bán tải sát mép trái 19,2 s → hết đoạn (máy dò bỏ sót)
-   + [{'box': [0.606, 0.175, 0.1, 0.16], 'start': 6.2, 'end': 6.9}, {'box': [0.65, 0.19, 0.1, 0.16], 'start': 6.2, 'end': 6.9}, {'box': [0.58, 0.17, 0.1, 0.16], 'start': 6.7, 'end': 7.4}, {'box': [0.64, 0.17, 0.1, 0.16], 'start': 6.7, 'end': 7.4}, {'box': [0.586, 0.15, 0.1, 0.16], 'start': 7.2, 'end': 7.9}, {'box': [0.65, 0.15, 0.1, 0.16], 'start': 7.2, 'end': 7.9}, {'box': [0.6, 0.16, 0.1, 0.16], 'start': 7.7, 'end': 8.4}, {'box': [0.66, 0.16, 0.1, 0.16], 'start': 7.7, 'end': 8.4}, {'box': [0.605, 0.13, 0.1, 0.16], 'start': 8.2, 'end': 8.9}, {'box': [0.69, 0.18, 0.1, 0.16], 'start': 8.2, 'end': 8.9}, {'box': [0.625, 0.14, 0.1, 0.16], 'start': 8.7, 'end': 9.4}, {'box': [0.74, 0.16, 0.1, 0.16], 'start': 8.7, 'end': 9.4}, {'box': [0.65, 0.155, 0.1, 0.16], 'start': 9.2, 'end': 9.9}, {'box': [0.7, 0.17, 0.1, 0.16], 'start': 9.2, 'end': 9.9}, {'box': [0.75, 0.14, 0.1, 0.16], 'start': 9.7, 'end': 10.4}, {'box': [0.67, 0.25, 0.1, 0.16], 'start': 9.7, 'end': 10.4}, {'box': [0.695, 0.23, 0.1, 0.16], 'start': 10.2, 'end': 10.9}, {'box': [0.84, 0.14, 0.1, 0.16], 'start': 10.2, 'end': 10.9}, {'box': [0.71, 0.24, 0.1, 0.16], 'start': 10.7, 'end': 11.4}, {'box': [0.82, 0.14, 0.1, 0.16], 'start': 10.7, 'end': 11.4}, {'box': [0.72, 0.25, 0.1, 0.16], 'start': 11.2, 'end': 12.0}, {'box': [0.81, 0.16, 0.1, 0.16], 'start': 11.2, 'end': 12.0}])  # mặt người lạ ở cầu thang nhà gỗ (máy dò che không đều)
+   + [{"box": [0.47, 0.17, 0.10, 0.16], "start": 1.4, "end": 4.3}] + [{'box': [0.606, 0.175, 0.1, 0.16], 'start': 6.2, 'end': 6.9}, {'box': [0.65, 0.19, 0.1, 0.16], 'start': 6.2, 'end': 6.9}, {'box': [0.58, 0.17, 0.1, 0.16], 'start': 6.7, 'end': 7.4}, {'box': [0.64, 0.17, 0.1, 0.16], 'start': 6.7, 'end': 7.4}, {'box': [0.586, 0.15, 0.1, 0.16], 'start': 7.2, 'end': 7.9}, {'box': [0.65, 0.15, 0.1, 0.16], 'start': 7.2, 'end': 7.9}, {'box': [0.6, 0.16, 0.1, 0.16], 'start': 7.7, 'end': 8.4}, {'box': [0.66, 0.16, 0.1, 0.16], 'start': 7.7, 'end': 8.4}, {'box': [0.605, 0.13, 0.1, 0.16], 'start': 8.2, 'end': 8.9}, {'box': [0.69, 0.18, 0.1, 0.16], 'start': 8.2, 'end': 8.9}, {'box': [0.625, 0.14, 0.1, 0.16], 'start': 8.7, 'end': 9.4}, {'box': [0.74, 0.16, 0.1, 0.16], 'start': 8.7, 'end': 9.4}, {'box': [0.65, 0.155, 0.1, 0.16], 'start': 9.2, 'end': 9.9}, {'box': [0.7, 0.17, 0.1, 0.16], 'start': 9.2, 'end': 9.9}, {'box': [0.75, 0.14, 0.1, 0.16], 'start': 9.7, 'end': 10.4}, {'box': [0.67, 0.25, 0.1, 0.16], 'start': 9.7, 'end': 10.4}, {'box': [0.695, 0.23, 0.1, 0.16], 'start': 10.2, 'end': 10.9}, {'box': [0.84, 0.14, 0.1, 0.16], 'start': 10.2, 'end': 10.9}, {'box': [0.71, 0.24, 0.1, 0.16], 'start': 10.7, 'end': 11.4}, {'box': [0.82, 0.14, 0.1, 0.16], 'start': 10.7, 'end': 11.4}, {'box': [0.72, 0.25, 0.1, 0.16], 'start': 11.2, 'end': 12.0}, {'box': [0.81, 0.16, 0.1, 0.16], 'start': 11.2, 'end': 12.0}])  # mặt người lạ ở cầu thang nhà gỗ (máy dò che không đều)
 SP(161, 0.4, 30.0, "Từ buôn Akô Dhông qua địa điểm tiếp theo thì mất khoảng 20 đến 30 phút đi xe, qua trang trại cà phê đấy. Pum cũng biết từ lâu rồi, nhưng mà hình như dạo gần đây thì mới cho khách đến để biết được quy trình trồng trọt, sản xuất ra được những thành phẩm. Mọi người cùng theo chân Pum để đi nhá.",
    "Đường lên farm", C, cuts=[(7.5, 82, 30.0, 4.0), (15.5, 158, 2.0, 4.0)], tighten=True, text=[T("label", "20–30 phút đi xe", 1.0, 5.0)])
 SP(71, 0.1, 11.8, "Tới trang trại cà phê rồi, trang trại cà phê này gần hồ Ea Kao luôn, nên là chắc chiều nay Pum sẽ đi ra ngoài này ngắm hoàng hôn luôn. Mắc gì cái tóc vậy trời.",
@@ -297,7 +298,7 @@ C = "Chương 5 · Đi tìm hoàng hôn"
 SP(207, 1.1, 13.95, "Mình đã tham quan trang trại xong, giờ mình sẽ đi ngắm hoàng hôn. Mình thấy trời ngon lắm, trời sắp xuống rồi, giờ mình sẽ kiếm một chỗ hợp lý để mình ngắm hoàng hôn nha.",
    "Đi ngắm hoàng hôn", C, trans="bang_hong", cuts=[(6.4, 206, 2.0, 6.6)])  # cảnh đường tới hết câu: bãi xe phía sau có biển số
 SP(132, 0.2, 19.4, "Mình là một người rất rất rất thích ngắm hoàng hôn luôn. Nên là mình rất là mong, háo hức là mình có thể được nhìn thấy hoàng hôn. Nên là mong là mình tới đó là vừa thấy hồ mà vừa thấy hoàng hôn luôn. Chứ không mình sẽ rất là buồn luôn đó.",
-   "Mê hoàng hôn", C)
+   "Mê hoàng hôn", C, hide_src=[{"box": [0.0, 0.30, 0.13, 0.20], "start": 3.6, "end": 6.5}])
 SP(132, 25.0, 43.0, "Ngày xưa là sẽ có một cái con đường song song với lại cái con đường này. Nhưng mà đóng cửa rồi. Giờ không còn cho đi vô để mà ngắm hoàng hôn nữa. Cả tuổi thơ của tui!",
    "Con đường tuổi thơ", C, cuts=[(6.0, 204, 2.0, 4.0)], text=[T("tape", "Cả tuổi thơ của tui!", 15.4, 18.0)])
 SP(205, 1.3, 22.95, "Cùng mình đi vô một cái chỗ ngắm hoàng hôn. Mình tìm ở trên Google Maps thôi. Nên là mình đi theo Google Maps chạy vô đây.",
@@ -323,7 +324,7 @@ SP(121, 1.2, 16.2, "Mọi người đoán được ở đâu chưa? Mọi ngư�
    "Đoán món", C, cuts=[(8.7, 122, 2.0, 3.2)], text=[T("postcard", "Mì Hường · mì hoành thánh", 9.6, 13.4)])
 SP(118, 6.8, 11.2, "Hoành thánh chiên, rau, chấm với sốt.", "Hoành thánh chiên", C)
 BR(191, 30.0, 35.0, "Pum ăn mì", C, audio="src")
-SP(191, 74.6, 76.5, "Nó sụp sụp sụp.", "Sụp sụp", C)
+SP(191, 74.6, 76.5, "Nó sụp sụp sụp.", "Sụp sụp", C, hide_src=[{"box": [0.08, 0.40, 0.18, 0.12], "start": 0.0, "end": 40.0}])
 SP(190, 2.9, 5.05, "Bye bye mọi người, giờ Pum ăn ở đây,", "Tạm biệt", C)
 SP(190, 15.5, 19.0, "hẹn mọi người ở vlog tiếp theo của Pum nha. See you!", "Tạm biệt (tiếp)", C)
 BR(199, 6.6, 12.6, "Câu hỏi cuối", "Cuối tập", audio="mute", text=[T("question", "Bạn thuộc phe cà phê hay phe ca cao như Pum?", 0.4, 6.0)])
@@ -403,6 +404,7 @@ MUS = {"Mở tập": "cheery_monday", "Chương 1 · Bánh canh": "daily_beetle"
        "Chương 3 · Cơm đồng bào": "bossa_antigua", "Chương 4 · Lên farm cà phê": "life_of_riley", "Chương 5 · Đi tìm hoàng hôn": "dreamer",
        "Chương 6 · Tối · Mì hoành thánh": "daily_beetle", "Cuối tập": "late_night_radio"}
 SWITCH = {"Mùa cà phê chín": "dream_culture", "Nếm thử": None, "Đi ngắm hoàng hôn": "dreamer", "Kịp rồi": "late_night_radio"}
+ALT = {"dream_culture": "teller_of_the_tales", "teller_of_the_tales": "dream_culture", "life_of_riley": "carefree", "dreamer": "almost_bliss", "daily_beetle": "jazz_brunch"}
 music = []; cur = None; trk = None; lastch = None
 for s in segs:
     if s["chapter"] != lastch: trk = MUS[s["chapter"]]; lastch = s["chapter"]
@@ -413,7 +415,9 @@ for s in segs:
     if trk is None:
         if s["label"].startswith("Vị khói") or s["label"].startswith("Nếm thử"): cur = None; continue
         trk = "life_of_riley"
-    if cur and cur["track"] == trk and abs(cur["end"] - st) < 0.05 and en - cur["start"] <= 115: cur["end"] = round(en, 2)
+    if cur and cur["track"] == trk and abs(cur["end"] - st) < 0.05 and en - cur["start"] > 90:  # một bài không chạy quá ~90 s: nghỉ một đoạn rồi đổi bài
+        cur = None; trk = ALT.get(trk, "carefree"); continue
+    if cur and cur["track"] == trk and abs(cur["end"] - st) < 0.05 and en - cur["start"] <= 90: cur["end"] = round(en, 2)
     else:
         if cur and cur["track"] == trk and abs(cur["end"] - st) < 0.05:  # quá 115 s: đổi điểm bắt đầu trong bài để không lặp đoạn
             pass
@@ -427,7 +431,7 @@ for k, m in enumerate(music):
 for m in music: print("  nhạc", m["track"], m["start"], m["end"], round(m["end"] - m["start"], 1), "từ", m["from"])
 for s in segs: s.pop("_t", None)
 # phụ đề: không ngắt dòng giữa từ ghép ("cà / phê", "địa / điểm"): kéo chữ cuối dòng trên xuống đầu dòng dưới
-COMP = {x.lower() for x in """cà phê|địa điểm|hoàng hôn|bầu trời|nhà sàn|nhà dài|mọi người|Buôn Ma|Ma Thuột|Buôn Mê|đồng bào|trang trại|hoành thánh|bánh canh|Ea Kao|Trần Nhật|Nhật Duật|Nhật Bản|người Nhật|thành phố|cầu thang|phụ nữ|đàn ông|đặc sản|công đoạn|công sức|Sài Gòn|tuổi thơ|khủng long|Google Maps|máy lạnh|thất bại|tham quan|hướng dẫn|ba chỉ|thịt ba|buổi sáng|dậy trễ|ăn riêng|ăn chung|quá trình|trồng trọt|sản xuất|thành phẩm|vệ sinh|chất lượng|Akô Dhông|Hồ Tùng|Tùng Mậu|Bà Già|ca cao|lấy chồng|con gái|vợ chồng|chế độ|mẫu hệ|tre nứa|bàn ghế|chiều nay|hôm nay|ngày xưa|con đường|xung quanh|đám mây|Mì Hường|thơm quá|đẹp quá|cây tiêu|lá chè|quả chín|chín đỏ|hạt cà|nghỉ ngơi|nhiều lần|đi ăn|cơm đồng""".split("|")}
+COMP = {x.lower() for x in """cà phê|địa điểm|hoàng hôn|bầu trời|nhà sàn|nhà dài|mọi người|Buôn Ma|Ma Thuột|Buôn Mê|đồng bào|trang trại|hoành thánh|bánh canh|Ea Kao|Trần Nhật|Nhật Duật|Nhật Bản|người Nhật|thành phố|cầu thang|phụ nữ|đàn ông|đặc sản|công đoạn|công sức|Sài Gòn|tuổi thơ|khủng long|Google Maps|máy lạnh|thất bại|tham quan|hướng dẫn|ba chỉ|thịt ba|buổi sáng|dậy trễ|ăn riêng|ăn chung|quá trình|trồng trọt|sản xuất|thành phẩm|vệ sinh|chất lượng|Akô Dhông|Hồ Tùng|Tùng Mậu|Bà Già|ca cao|lấy chồng|con gái|vợ chồng|chế độ|mẫu hệ|tre nứa|bàn ghế|chiều nay|hôm nay|ngày xưa|con đường|xung quanh|đám mây|Mì Hường|hình như|song song|phát hiện|ở đâu|cố gắng|1 ly|thơm quá|đẹp quá|cây tiêu|lá chè|quả chín|chín đỏ|hạt cà|nghỉ ngơi|nhiều lần|đi ăn|cơm đồng""".split("|")}
 def fix_compounds():
     seq = []
     for sg in segs:
@@ -440,7 +444,7 @@ def fix_compounds():
         for _ in range(3):
             aw, bw = A.split(), B.split()
             if len(aw) < 3 or not bw: break
-            w1 = aw[-1]; w2 = bw[0].strip(",.!?").lower()
+            w1 = aw[-1]; w2 = bw[0].strip(",.!?:").lower()
             if w1[-1] in ",.!?:": break
             if f"{w1.lower()} {w2}" in COMP: A = " ".join(aw[:-1]); B = w1 + " " + B
             else: break
@@ -452,6 +456,20 @@ def fix_compounds():
             if x[2] in rep: x[2] = rep[x[2]]; n += 1
     print("phụ đề sửa ngắt từ ghép:", len(rep), "dòng")
 fix_compounds()
-edl = {"ep": "testlate", "ver": 8, "size": [1920, 1080], "segments": segs, "music": music, "sfx": sfx}
+edl = {"ep": "testlate", "ver": 9, "size": [1920, 1080], "segments": segs, "music": music, "sfx": sfx}
+# che thêm sau khi soát bản 4K (biển số chỉ đọc được ở 4K; máy dò lúc prep chạy ở 1080 nên sót)
+EXTRA_HIDE = {"s21": [{"box": [0.81, 0.16, 0.15, 0.22], "start": 0.0, "end": 12.0}],
+              "s25": [{"box": [0.0, 0.58, 0.15, 0.13], "start": 0.0, "end": 5.2}, {"box": [0.03, 0.55, 0.19, 0.20], "start": 4.9, "end": 8.2}],
+              "s30": [{"box": [0.225, 0.43, 0.06, 0.06], "start": 0.0, "end": 4.4}],
+              "s33": [{"box": [0.91, 0.39, 0.08, 0.09], "start": 14.7, "end": 15.8}, {"box": [0.83, 0.39, 0.09, 0.09], "start": 15.4, "end": 16.6}],
+              "s61": [{"box": [0.01, 0.48, 0.13, 0.09], "start": 0.0, "end": 1.3}, {"box": [0.14, 0.47, 0.12, 0.08], "start": 1.0, "end": 4.0}],
+              "s139": [{"box": [0.83, 0.47, 0.14, 0.11], "start": 0.0, "end": 5.0}],
+              "s140": [{"box": [0.83, 0.47, 0.14, 0.11], "start": 0.0, "end": 5.0}],
+              "s141": [{"box": [0.83, 0.47, 0.14, 0.11], "start": 0.0, "end": 5.0}]}
+HFLIP = {"s25", "s28", "s30"}  # quay camera trước bị ngược gương (chữ biển hiệu đọc ngược) — chấm độc lập bản 9
+for sg_ in edl["segments"]:
+    if sg_["id"] in HFLIP: sg_["hflip"] = True
+    for h_ in EXTRA_HIDE.get(sg_["id"], []):
+        if h_ not in sg_.setdefault("hide_src", []): sg_["hide_src"].append(h_)
 json.dump(edl, open("/home/claude/pumdung/testlate/edl_v5.json", "w"), ensure_ascii=False, indent=1)
 print(len(segs), "đoạn", f"{total/60:.1f} phút", len(sfx), "tiếng hiệu ứng", sum(len(s["doodles"]) for s in segs), "doodle")
