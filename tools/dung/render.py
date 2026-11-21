@@ -154,6 +154,7 @@ def soft_hide(src, out, tag, bx, by, bw, bh, fw, fh, s0, s1):
             f"[{tag}d]extractplanes=y,geq=lum={al}[{tag}m];[{tag}c]format=yuva420p[{tag}e];[{tag}e][{tag}m]alphamerge[{tag}f];"
             f"[{tag}a][{tag}f]overlay={ex}:{ey}:enable='between(t,{s0:.2f},{s1:.2f})'[{out}]")
 KEEP_TOGETHER = {x.lower() for x in "Buôn Ma Thuột|Buôn Mê|Ea Kao|đồng bào|mọi người|hoàng hôn|cố gắng|cà phê|nhà dài|nhà sàn|Akô Dhông|Trần Nhật Duật|Hồ Tùng Mậu|Bà Già|bánh canh|Mì Hường|hoành thánh|người Nhật|lên farm|trang trại|phụ nữ|đàn ông|tre nứa|ba chỉ|ca cao|lá chè|tự pha|quả chín|chín đỏ|hồ Ea Kao|đi tìm".split("|")}
+KEEP_SUB = {x.lower() for x in "Buôn Ma Thuột|Buôn Mê Thuột|Buôn Ma|Ma Thuột|Buôn Mê|Ea Kao|hồ Ea Kao|đồng bào|cơm đồng bào|hoàng hôn|cà phê|nhà sàn|nhà dài|Sài Gòn|Akô Dhông|Trần Nhật Duật|Hồ Tùng Mậu|Mì Hường|hoành thánh|bánh canh|người Nhật|Nhật Bản|trang trại|ca cao|tre nứa|Ama H'Rin|Robusta|Arabica|giờ rồi|9 giờ|6 đến 8 tháng|cà phê chín".split("|")}
 def wrap(draw, text, font, maxw):
     """Xuống dòng cân: giữ số dòng tối thiểu nhưng chia đều để không còn một chữ lẻ ở dòng cuối. Hỗ trợ \\n ép xuống dòng."""
     out = []
@@ -239,6 +240,12 @@ def card(text, style, W, H, fx, where=None):
 def ass_time(t):
     t = max(0, t); h = int(t // 3600); m = int(t % 3600 // 60); s = t % 60
     return f"{h}:{m:02d}:{s:05.2f}"
+def keep_nbsp(t):
+    """phụ đề: nối tên riêng và từ ghép bằng khoảng trắng không ngắt để libass không xuống dòng giữa chúng ("Buôn Ma | Thuột")"""
+    for ph in sorted(KEEP_TOGETHER | KEEP_SUB, key=len, reverse=True):
+        t = re.sub(r"(?i)(?<![\w])" + r"\s+".join(map(re.escape, ph.split())) + r"(?![\w])", lambda m: m.group(0).replace(" ", "\u00a0"), t)
+    return t
+
 def build_ass(subs, W, H, path):
     S = H / 1080
     V = H > W
@@ -250,7 +257,7 @@ WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Pum,Be Vietnam Pro ExtraBold,{62 if V else int(62*S)},&H00FFFFFF,&H00FFFFFF,&H00302639,&H64302639,0,0,0,0,100,100,0,0,1,{5.0 if V else round(4.5*S, 1)},{1.6 if V else round(1.5*S, 1)},2,{70 if V else int(160*S)},{170 if V else int(160*S)},{int(H*0.29) if V else int(64*S)},1
+Style: Pum,Be Vietnam Pro ExtraBold,{62 if V else int(62*S)},&H00FFFFFF,&H00FFFFFF,&H00302639,&H64302639,0,0,0,0,100,100,0,0,1,{5.0 if V else round(4.5*S, 1)},{1.6 if V else round(1.5*S, 1)},2,{70 if V else int(160*S)},{170 if V else int(160*S)},{int(H*0.205) if V else int(64*S)},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -259,7 +266,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     for k, (a, b, t) in enumerate(subs):  # không để hai dòng phụ đề chồng nhau
         if k + 1 < len(subs): b = min(b, subs[k + 1][0] - 0.02)
         cl.append((a, b, t))
-    ev = [f"Dialogue: 0,{ass_time(a)},{ass_time(b)},Pum,,0,0,0,,{t.replace(chr(10), chr(92)+'N')}" for a, b, t in cl if b - a > 0.15 and t.strip()]
+    ev = [f"Dialogue: 0,{ass_time(a)},{ass_time(b)},Pum,,0,0,0,,{keep_nbsp(t).replace(chr(10), chr(92)+'N')}" for a, b, t in cl if b - a > 0.15 and t.strip()]
     Path(path).write_text(head + "\n".join(ev) + "\n", encoding="utf-8")
 
 def chunk_words(words, maxc=42, maxdur=3.2):
@@ -318,7 +325,7 @@ def doodle_pos(face, W, H, size, j, has_text, used=(), boxes=()):
     return int(best[1]), int(best[2])
 
 SEG_VER = "s1"
-VSEG_VER = "v4"  # chỉ khung dọc: đổi khi sửa cách cắt cửa sổ 9:16 / đặt chữ né mặt (không làm mất kho đoạn của bản ngang)
+VSEG_VER = "v5"  # chỉ khung dọc: đổi khi sửa cách cắt cửa sổ 9:16 / đặt chữ né mặt (không làm mất kho đoạn của bản ngang)
 DOODLE_VER = "d2"  # đổi khi sửa cách đặt/vẽ doodle: chỉ dựng lại các đoạn có doodle  # đổi khi sửa cách dựng một đoạn (seg_render, doodle, chữ) để không dùng lại bản cũ
 
 def vcx(src, a, b, vw, vh, sg):
@@ -458,6 +465,7 @@ def place_v(cim, src, a, sp, s0, s1, W, H, chain, placed):
             if fw < W * 0.05: continue
             if x0 < fx0 + fw * 1.08 and x1 > fx0 - fw * 0.08 and y0 < fy0 + fh * 1.08 and y1 > fy0 + fh * 0.22: return True
         if x1 > W * 0.865 and y1 > H * 0.40 and y0 < H * 0.80: return True  # dải nút bên phải của TikTok
+        if y1 > H * 0.70: return True  # dải phụ đề (0,71–0,80 chiều cao)
         for p0, p1, pb in placed:
             if p0 < s1 and p1 > s0 and x0 < pb[2] + 12 and x1 > pb[0] - 12 and y0 < pb[3] + 12 and y1 > pb[1] - 12: return True
         return False

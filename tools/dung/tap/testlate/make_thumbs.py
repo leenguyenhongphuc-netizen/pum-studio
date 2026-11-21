@@ -63,15 +63,16 @@ im.convert("RGB").save(OUT / "youtube_thumb.jpg", quality=92)
 
 # ---------- TikTok 1080x1920: khung đầu của hook + băng hook + nhãn phần ----------
 for n in range(1, 8):
-    T = json.load(open(TT / f"tt{n}.json")); sg = T["segments"][0]
+    T = json.load(open(TT / f"tt{n}.json")); tp = next(x["text"] for x in T["segments"][0]["text"] if x["style"] == "tape")
+    COVER = {4: ("s59", 2.0), 6: ("hook1_s117", 1.0)}  # hook không có Pum trên hình: lấy khung có Pum
+    sg = next((x for x in T["segments"] if x["id"] == COVER[n][0]), T["segments"][0]) if n in COVER else T["segments"][0]
     src = sg["path"]; a, b = float(sg["in"]), float(sg["out"])
     vw, vh = map(int, subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", src], capture_output=True, text=True).stdout.strip().split(",")[:2])
     keys = R.vtrack(src, a, b, vw, vh, sg)
-    t = a + min(0.6, (b - a) / 2)
+    t = a + (COVER[n][1] if n in COVER and sg["id"] == COVER[n][0] else min(0.6, (b - a) / 2))
     fr = grab(src, t, ("hflip," if sg.get("hflip") else "") + R.vfit([(0.0, R.c_at(keys, t - a))], 1080, 1920), hides(sg, t - a, vw, vh)).convert("RGBA")
-    tp = next(x["text"] for x in sg["text"] if x["style"] == "tape")
     lab = R.card(f"Phần {n}/7 · Đi đâu thử đó", "label", 1080, 1920, fx, 0.135)
-    tap = R.card(tp, "tape", 1080, 1920, fx, 0.63)
+    tap = R.card(tp, "tape", 1080, 1920, fx, 0.56)  # đáy băng chữ phải trên vùng caption TikTok (20% dưới)
     fr.alpha_composite(lab); fr.alpha_composite(tap)
     fr.convert("RGB").save(OUT / f"tiktok_{n}_cover.jpg", quality=92)
 print("xong", sorted(p.name for p in OUT.iterdir()))

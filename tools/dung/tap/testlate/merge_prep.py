@@ -7,7 +7,8 @@ P = os.environ.get("PREP_DIR", "/home/claude/pumdung/testlate/prep")
 E = json.load(open(new)); rep = json.load(open(P + "/report.json"))
 by = {}
 for sid, r in rep.items():
-    if r.get("src") and os.path.exists(f"{P}/{sid}.mp4"): by.setdefault(tuple(r["src"]), f"{P}/{sid}.mp4")
+    f_ = f"{P}/{sid}.mp4"  # cùng nội dung có nhiều bản (làm lại sau khi sửa cách che): lấy bản mới nhất
+    if r.get("src") and os.path.exists(f_) and (tuple(r["src"]) not in by or os.path.getmtime(f_) > os.path.getmtime(by[tuple(r["src"])])): by[tuple(r["src"])] = f_
 bad = []
 for s in E["segments"]:
     f = by.get((s["clip"], s["in"], s["out"]))

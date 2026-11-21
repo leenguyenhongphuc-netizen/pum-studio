@@ -66,7 +66,11 @@ def worker(job):
             mm = np.zeros(roi.shape[:2], np.uint8); cv2.ellipse(mm, ((x1 - x0) // 2, (y1 - y0) // 2), ((x1 - x0) // 2, (y1 - y0) // 2), 0, 0, 360, 255, -1)
             mm = cv2.GaussianBlur(mm, (21, 21), 0)[..., None] / 255.0
             roi[:] = (bl * mm + roi * (1 - mm)).astype(np.uint8)
-        else: roi[:] = bl
+        else:  # biển số: hình chữ nhật bo góc, viền mờ dần (không thành mảng cứng)
+            mm = np.zeros(roi.shape[:2], np.uint8); r_ = max(2, min(x1 - x0, y1 - y0) // 4)
+            cv2.rectangle(mm, (r_, r_), (x1 - x0 - r_, y1 - y0 - r_), 255, -1)
+            kk = (max(5, (min(x1 - x0, y1 - y0) // 3)) | 1); mm = cv2.GaussianBlur(mm, (kk, kk), 0)[..., None] / 255.0
+            roi[:] = (bl * mm + roi * (1 - mm)).astype(np.uint8)
 
     GUIDE = {"1yLnUP9JTatrw9QIYnkx2plVDNwdspaWr"}  # đoạn anh hướng dẫn nói: không coi là Pum tự quay
     selfie = sg.get("voice") == "noi" and sg.get("audio") == "src" and sg["clip"] not in GUIDE and not sg["label"].startswith(("Robusta", "Mùa cà phê", "Pha xong", "Vị khói", "Tự pha"))
@@ -97,6 +101,7 @@ def worker(job):
                     for ox, oy in ((0, 0), (W // 2 - 200, 0), (W // 2, 0), (0, H // 2 - 120), (W // 2 - 200, H // 2 - 120), (W // 2, H // 2 - 120)):
                         cand += [[b_[0] + ox, b_[1] + oy, b_[2], b_[3]] for b_ in plates(img[oy:oy + H // 2 + 120, ox:ox + W // 2], 0.4)]
                     for x0, y0, bw, bh in cand:
+                        if y0 + bh / 2 < float(sg.get("plate_ymin", 0)) * H: continue  # biển số nhà, biển hiệu ở trên cao (không phải biển xe)
                         if bw >= 14 and 0.8 <= bw / max(bh, 1) <= 6.5 and bw * bh < 0.02 * W * H and plate_like(img, x0, y0, bw, bh):
                             pls.append([n, x0, y0, bw, bh])
             n += 1
@@ -203,7 +208,7 @@ def main():
             except Exception: pass
     for sg in E["segments"]:
         c = CL[sg["clip"]]; src = src4k(sg["clip"]) if K4 else c["path"]
-        key = hashlib.sha1(json.dumps([sg["clip"], sg["in"], sg["out"], preset_for(sg), "v4"] + (["noblur"] if noblur(sg) else []) + (["4k"] if K4 else []), sort_keys=True).encode()).hexdigest()[:12]
+        key = hashlib.sha1(json.dumps([sg["clip"], sg["in"], sg["out"], preset_for(sg), "v4"] + (["noblur"] if noblur(sg) else []) + (["4k"] if K4 else []) + ([f"py{sg['plate_ymin']}", "soft"] if sg.get("plate_ymin") else []), sort_keys=True).encode()).hexdigest()[:12]
         sg["_key"] = key; sg["_src"] = src
         r0 = rep.get(sg["id"], {})
         if not (only and sg["id"] not in only) and rep.get(sg["id"], {}).get("key") != key and (BK / f"{key}.mp4").exists():

@@ -307,7 +307,7 @@ SP(205, 23.8, 30.7, "Ủa, ở đây có cà phê! Đẹp lắm mọi người. 
 SP(172, 1.4, 26.9, "Buồn quá mọi người ơi, tưởng là sẽ phát hiện ra được một con đường đi ngắm hoàng hôn đẹp, nhưng mà thất bại rồi. Bây giờ em phải chạy ra lại cái hồ Ea Kao để ngắm hoàng hôn, mong là hoàng hôn chưa lặn, để em có thể đón hoàng hôn. Chứ giờ mà chạy ra hồ Ea Kao mà nó lặn rồi chắc khóc to luôn á mọi người ạ.",
    "Thất bại", C, cuts=[(9.6, 171, 8.0, 4.0), (18.0, 200, 6.0, 3.3)], tighten=True, text=[T("label", "Kế hoạch B: hồ Ea Kao", 11.0, 15.0)])
 BR(124, 2.0, 8.0, "Kịp rồi", C, text=[T("postcard", "Hồ Ea Kao · hoàng hôn", 0.4, 3.6)])
-SP(195, 1.4, 12.9, "Đẹp quá! Bầu trời hôm nay cũng đẹp đẹp đẹp đẹp.", "Đẹp đẹp đẹp", C, vol=1.8, skip=[(2.3, 10.55)], text=[T("tape", "Kịp rồi!", 0.2, 2.6)])
+SP(195, 1.4, 12.9, "Đẹp quá! Bầu trời hôm nay cũng đẹp đẹp đẹp đẹp.", "Đẹp đẹp đẹp", C, vol=1.8, skip=[(2.3, 10.55)], text=[T("tape", "Trời vẫn đẹp quá!", 0.2, 2.6)])
 SP(125, 0.6, 2.6, "Mọi người nhìn cái đó giống cái gì?", "Mây giống gì", C, vol=1.8)
 SP(194, 18.98, 36.1, "Nhìn bầu trời này mình cứ muốn cầm máy lên quay hoài luôn á mọi người ạ. Nhưng mà nó đẹp, tự nhiên xung quanh đây là màu cam, xong rồi có một cái đám mây nhìn giống con khủng long. Trông nó yêu nhờ.",
    "Mây khủng long", C, vol=1.8, cuts=[(6.3, 126, 1.0, 4.4)], tighten=True, text=[T("label", "Mây khủng long!", 10.4, 13.8)])
@@ -453,7 +453,9 @@ def fix_compounds():
     n = 0
     for sg in segs:
         for x in sg.get("subs", []):
-            if x[2] in rep: x[2] = rep[x[2]]; n += 1
+            for _ in range(4):  # nối chuỗi: dòng vừa nhận chữ từ dòng trên cũng có thể bị đẩy chữ cuối xuống dòng dưới
+                if x[2] in rep and rep[x[2]] != x[2]: x[2] = rep[x[2]]; n += 1
+                else: break
     print("phụ đề sửa ngắt từ ghép:", len(rep), "dòng")
 fix_compounds()
 edl = {"ep": "testlate", "ver": 9, "size": [1920, 1080], "segments": segs, "music": music, "sfx": sfx}
@@ -461,14 +463,19 @@ edl = {"ep": "testlate", "ver": 9, "size": [1920, 1080], "segments": segs, "musi
 EXTRA_HIDE = {"s21": [{"box": [0.81, 0.16, 0.15, 0.22], "start": 0.0, "end": 12.0}],
               "s25": [{"box": [0.0, 0.58, 0.15, 0.13], "start": 0.0, "end": 5.2}, {"box": [0.03, 0.55, 0.19, 0.20], "start": 4.9, "end": 8.2}],
               "s30": [{"box": [0.225, 0.43, 0.06, 0.06], "start": 0.0, "end": 4.4}],
+              "lt_caphe_1": [{"box": [0.74, 0.0, 0.25, 0.21], "start": 0.0, "end": 1.6}],  # mặt người làm ở xưởng (chấm TikTok)
+              "s135": [{"box": [0.0, 0.78, 1.0, 0.22], "start": 2.0, "end": 3.3}],  # máy lia xuống quán đông người
+              "s138": [{"box": [0.50, 0.37, 0.13, 0.10], "start": 1.3, "end": 4.2}],  # biển xe máy sau lưng Pum
               "s33": [{"box": [0.91, 0.39, 0.08, 0.09], "start": 14.7, "end": 15.8}, {"box": [0.83, 0.39, 0.09, 0.09], "start": 15.4, "end": 16.6}],
               "s61": [{"box": [0.01, 0.48, 0.13, 0.09], "start": 0.0, "end": 1.3}, {"box": [0.14, 0.47, 0.12, 0.08], "start": 1.0, "end": 4.0}],
               "s139": [{"box": [0.83, 0.47, 0.14, 0.11], "start": 0.0, "end": 5.0}],
               "s140": [{"box": [0.83, 0.47, 0.14, 0.11], "start": 0.0, "end": 5.0}],
               "s141": [{"box": [0.83, 0.47, 0.14, 0.11], "start": 0.0, "end": 5.0}]}
+PLATE_YMIN = {"s25": 0.4, "s26": 0.4}  # biển số nhà 52/11 trên cao bị máy dò tưởng biển xe
 HFLIP = {"s25", "s28", "s30"}  # quay camera trước bị ngược gương (chữ biển hiệu đọc ngược) — chấm độc lập bản 9
 for sg_ in edl["segments"]:
     if sg_["id"] in HFLIP: sg_["hflip"] = True
+    if sg_["id"] in PLATE_YMIN: sg_["plate_ymin"] = PLATE_YMIN[sg_["id"]]
     for h_ in EXTRA_HIDE.get(sg_["id"], []):
         if h_ not in sg_.setdefault("hide_src", []): sg_["hide_src"].append(h_)
 json.dump(edl, open("/home/claude/pumdung/testlate/edl_v5.json", "w"), ensure_ascii=False, indent=1)

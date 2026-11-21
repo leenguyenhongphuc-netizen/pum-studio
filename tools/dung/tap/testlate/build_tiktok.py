@@ -41,6 +41,8 @@ def sub(sid, a=None, b=None, newid=None, strict=False):
     if s.get("vo") and s["vo"].get("speech"):
         s["vo"]["in"] = round(s["vo"]["in"] + a, 3); s["vo"]["out"] = round(s["vo"]["in"] + L, 3)
     s["_sfx"] = [dict(f, at=round(f["at"] - a, 3)) for f in SFX.get(sid, []) if a <= f["at"] < b]
+    s["hide_src"] = [dict(h, start=round(max(0, float(h.get("start", 0)) - a), 2), end=round(min(L, float(h.get("end", 1e6)) - a), 2))
+                     for h in s.get("hide_src", []) if float(h.get("end", 1e6)) > a and float(h.get("start", 0)) < b]  # giờ ô che tính lại theo khúc cắt
     s["id"] = newid or sid; s.pop("trans", None); s["fade"] = 0.06
     return s
 
@@ -77,7 +79,7 @@ def hook(parts, tape, label=None, subs=None, label_end=3.0):
     segs[0]["_sfx"] = [{"name": "swoosh", "at": 0.15, "vol": 0.45}]
     return segs
 
-TAPE_POS = {"Kịp hoàng hôn không đây?": 0.58}  # hook có mặt Pum chiếm nửa trên khung: đặt băng dưới mặt
+TAPE_POS = {"Kịp hoàng hôn không đây?": 0.555}  # hook có mặt Pum chiếm nửa trên khung: đặt băng dưới mặt
 TAPE_Y_LABEL = 0.165  # khung dọc: băng chữ hook nằm dưới nhãn series (nhãn ở 8,5% chiều cao)
 SERIES = "Đi đâu thử đó"
 
@@ -120,9 +122,9 @@ SWITCH = {"Mùa cà phê chín": "dream_culture", "Nếm thử": None, "Kịp r�
 
 for k, st in enumerate(S):
     segs = []
-    hk = hook(st["hook"], st["tape"], label=f"{SERIES} · {st['n']}/{len(S)}", subs=st.get("hook_subs"))
+    hk = hook(st["hook"], st["tape"], label=f"Phần {st['n']}/{len(S)} · {SERIES}", subs=st.get("hook_subs"))
     segs += hk
-    body = [sub(x, 8.55, None, newid=x) if st["n"] == 1 and SEG[IDX[x]]["label"] == "Dậy trễ" else full(x) for x in st["body"]]  # phần 1: chỉ giữ câu "dậy trễ rồi"
+    body = [sub(x, 8.55, None, newid=x, strict=True) if st["n"] == 1 and SEG[IDX[x]]["label"] == "Dậy trễ" else full(x) for x in st["body"]]  # phần 1: chỉ giữ câu "dậy trễ rồi"
     for s in body:  # nhãn series đã có ở hook
         s["text"] = [x for x in s.get("text", []) if not (x["style"] == "label" and x["text"] == SERIES)]
     body[0].pop("trans", None); body[0]["_sfx"] = [f for f in body[0]["_sfx"] if f["name"] != "whoosh"] + [{"name": "whoosh", "at": -0.25, "vol": 0.35}]
@@ -139,7 +141,7 @@ for k, st in enumerate(S):
         for k_ in ("path", "clip", "in", "out", "src_clip", "src_in", "src_out", "crop"): q[k_] = pm.get(k_)
         q["audio"] = "low"; q["out"] = round(min(float(q["out"]), float(pm["in"]) + 5.0), 3) if q.get("in") is not None else q["out"]
         for x in q["text"]:
-            if x["style"] == "question": x["text"] = "Ở chỗ bạn có quán mì hoành thánh nào ngon không?"
+            if x["style"] == "question": x["text"] = "Ở chỗ bạn có quán mì hoành thánh nào ngon không?"; x["pos"] = 0.56  # dưới mặt Pum
         segs.append(q)
     # mọi đoạn khung dọc: cửa sổ 9:16 tự theo mặt Pum (vùng crop cũ thành giới hạn)
     for s in segs:
