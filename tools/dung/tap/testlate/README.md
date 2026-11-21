@@ -25,7 +25,7 @@ Bản final luôn dựng từ nguồn 4K; bản nháp thì nén nhẹ để gử
 | `prep.py` + `prep4k_run.py` | `PREP_4K=1`: dò mặt/biển ở 1080 (lượt 1) rồi làm đẹp, che ở 3840×2160 đọc thẳng từ file gốc 4K (lượt 2), ghi `prep4k/`. Tải từng clip gốc, xử lý xong xoá. Chạy `--jobs 1` (2 job bị tràn RAM 8 GB), x264 veryfast crf 21. Đoạn nào trùng (clip, in, out) đã có trong `prep4k/bykey` thì dùng lại. |
 | `merge_prep.py` | `PREP_DIR=.../prep4k` để ghép edl với bản 4K. |
 | `platescan.py` | dò lại biển số trên bản xuất 4K (`PCONF=0.22 PSHARP=25 PLIKE=0` để bắt rộng rồi tự xem ảnh). Máy dò lúc prep chạy ở 1080 nên sót biển nhỏ, mà ở 4K lại đọc rõ: luôn soát lại bằng ảnh cắt 4K trước khi giao. |
-| `patch9.py` | vá nhanh bản đã xuất: che thêm ô mờ chỉ trong các đoạn giữa hai khung khoá, phần còn lại sao nguyên (cắt phần sao bằng `-frames:v`, không dùng `-t`, nếu không sẽ dư khung và lệch tiếng). Không dùng được cho lỗi lật gương: lỗi đó phải dựng lại. |
+| `patch9.py`, `patch11.py` | vá nhanh bản đã xuất (patch11 còn thay hình cả đoạn bằng bản dựng lại riêng đoạn đó: overlay bật theo `t`, không theo `n` — `n` của overlay đếm khung lớp phủ): che thêm ô mờ chỉ trong các đoạn giữa hai khung khoá, phần còn lại sao nguyên (cắt phần sao bằng `-frames:v`, không dùng `-t`, nếu không sẽ dư khung và lệch tiếng). Không dùng được cho lỗi lật gương: lỗi đó phải dựng lại. |
 | `fixaudio.py` | chuẩn tiếng 2 lượt về −14 LUFS, đỉnh ≤ −1,5 dBTP. |
 | `run_4k_example.sh` | ví dụ chạy dựng ngang 4K (`PUM_SEG_CRF=20 PUM_CRF=18 PUM_PRESET=faster`) song song một phần TikTok, rồi chuẩn tiếng và QA. |
 

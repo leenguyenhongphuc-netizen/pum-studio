@@ -71,6 +71,7 @@ def hook(parts, tape, label=None, subs=None, label_end=3.0):
         L = s["out"] - s["in"]
         tp = {"style": "tape", "text": tape, "start": 0.1 if k == 0 else 0.0, "end": round(L, 2), "cont_in": k > 0, "cont_out": k < len(segs) - 1}
         if label: tp["pos"] = TAPE_POS.get(tape, TAPE_Y_LABEL)
+        if tape in TAPE_POS: tp["fixed"] = True  # giữ một chỗ suốt hook (dưới cằm, trên dải phụ đề)
         s["text"].insert(0, tp)
         if label and acc < label_end:
             s["text"].insert(0, {"style": "label", "text": label, "start": round(max(0.1 - acc, 0), 2), "end": round(min(label_end - acc, L), 2),
@@ -79,7 +80,7 @@ def hook(parts, tape, label=None, subs=None, label_end=3.0):
     segs[0]["_sfx"] = [{"name": "swoosh", "at": 0.15, "vol": 0.45}]
     return segs
 
-TAPE_POS = {"Kịp hoàng hôn không đây?": 0.555}  # hook có mặt Pum chiếm nửa trên khung: đặt băng dưới mặt
+TAPE_POS = {"Kịp hoàng hôn không đây?": 0.535}  # hook có mặt Pum chiếm nửa trên khung: đặt băng dưới mặt
 TAPE_Y_LABEL = 0.165  # khung dọc: băng chữ hook nằm dưới nhãn series (nhãn ở 8,5% chiều cao)
 SERIES = "Đi đâu thử đó"
 
@@ -148,6 +149,7 @@ for k, st in enumerate(S):
         s["cx"] = "auto"; s.pop("zoom", None)
         if s["label"] == "Tự pha cà phê": s["cx"] = 0.515  # khung dọc vào phễu và ấm rót, không bám mặt
         if s["label"] == "Đoán món (cảnh chèn)": s["cx"] = 0.47; s["bright"] = 0.05  # biển Mì Hường trọn chữ
+        if s["label"].startswith("Hạt cũng cần nghỉ") and "cảnh chèn" not in s["label"]: s["vzoom"] = 1.3; s["vy"] = 1.0  # nhà kính: mặt Pum thấp, đẩy lên khỏi phụ đề
     # dòng thời gian, tiếng hiệu ứng, nhạc
     t = 0.0; sfx = []; music = []; cur = None
     trk = MUS[body[0]["chapter"]]; seen = set(); prev_ch = None

@@ -419,7 +419,7 @@ def c_at(keys, tr):
         if tr < t1: return c0 + (c1 - c0) * (tr - t0) / max(t1 - t0, 1e-3)
     return keys[-1][1]
 
-def vfit(keys, W, H):
+def vfit(keys, W, H, z=1.0, vy=1.0):
     """bộ lọc khung dọc: phóng theo chiều cao rồi cắt cửa sổ 9:16; tâm lia tuyến tính giữa các mốc (t tính từ đầu đoạn)"""
     if len(keys) == 1: ce = f"{keys[0][1]:.4f}"
     else:
@@ -427,6 +427,9 @@ def vfit(keys, W, H):
         for (t0, c0), (t1, c1) in reversed(list(zip(keys, keys[1:]))):
             ce = f"if(lt(t,{t1:.3f}),{c0:.4f}+({c1 - c0:.4f})*(t-{t0:.3f})/{max(t1 - t0, 0.01):.3f},{ce})"
         ce = f"if(lt(t,{keys[0][0]:.3f}),{keys[0][1]:.4f},{ce})"
+    if z > 1.001:  # phóng thêm rồi lấy phần dưới (vy=1): đẩy mặt Pum lên cao, phụ đề khỏi đè miệng
+        Hz = int(H * z) // 2 * 2
+        return f"scale=-2:{Hz},crop={W}:{H}:x='min(max(0,iw*({ce})-{W}/2),iw-{W})':y={int((Hz - H) * vy)}"
     return f"scale=-2:{H},crop={W}:{H}:x='min(max(0,iw*({ce})-{W}/2),iw-{W})':y=0"
 
 def seg_key(sg, clips, W=1920, H=1080):
@@ -507,8 +510,8 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         # khung dọc từ cảnh ngang: cửa sổ 9:16 đặt theo mặt Pum; vùng "crop" (bỏ người đi cùng) thành giới hạn cửa sổ
         vkeys = vtrack(src, a, b, vw, vh, sg)
         if sg.get("hflip"): vkeys = [(t_, 1 - c_) for t_, c_ in vkeys]  # tâm đo trên hình chưa lật
-        vf.append(vfit(vkeys, W, H))
-        vchain = lambda ta: ("hflip," if sg.get("hflip") else "") + vfit([(0.0, c_at(vkeys, ta + 0.3 - a))], W, H)  # khung tĩnh đúng lúc ta (cho dò mặt 1 khung)
+        vf.append(vfit(vkeys, W, H, float(sg.get("vzoom", 1)), float(sg.get("vy", 1))))
+        vchain = lambda ta: ("hflip," if sg.get("hflip") else "") + vfit([(0.0, c_at(vkeys, ta + 0.3 - a))], W, H, float(sg.get("vzoom", 1)), float(sg.get("vy", 1)))  # khung tĩnh đúng lúc ta (cho dò mặt 1 khung)
     elif sg.get("crop"):  # cắt khung (bỏ mép có người đi cùng): [x, y, w, h] tỉ lệ 0..1 của khung gốc
         cx, cy, cw, ch_ = [float(v) for v in sg["crop"]]
         pre = f"crop=trunc(iw*{cw}/2)*2:trunc(ih*{ch_}/2)*2:trunc(iw*{cx}):trunc(ih*{cy}),"
@@ -551,7 +554,7 @@ def seg_render(i, sg, clips, W, H, fx, tmp):
         PRI = {"label": 0, "tape": 1, "postcard": 2, "price": 3}; placed = []  # nhãn nhỏ giữ chỗ trên cùng; băng chữ tìm chỗ trống gần nhất
         for j in sorted(range(len(T_)), key=lambda j: PRI.get(T_[j].get("style", "tape"), 9)):
             t = T_[j]
-            if t.get("style", "tape") in PRI:
+            if t.get("style", "tape") in PRI and not t.get("fixed"):
                 cims[j] = place_v(cims[j], src, a, sp, float(t.get("start", 0)), float(t.get("end", dur)), W, H, vchain, placed)
             placed.append((float(t.get("start", 0)), float(t.get("end", dur)), cims[j].getbbox() or (0, 0, 0, 0)))
     for j, t in enumerate(T_):

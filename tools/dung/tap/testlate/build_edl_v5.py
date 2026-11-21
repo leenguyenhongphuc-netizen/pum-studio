@@ -461,11 +461,12 @@ fix_compounds()
 edl = {"ep": "testlate", "ver": 9, "size": [1920, 1080], "segments": segs, "music": music, "sfx": sfx}
 # che thêm sau khi soát bản 4K (biển số chỉ đọc được ở 4K; máy dò lúc prep chạy ở 1080 nên sót)
 EXTRA_HIDE = {"s21": [{"box": [0.81, 0.16, 0.15, 0.22], "start": 0.0, "end": 12.0}],
-              "s25": [{"box": [0.0, 0.58, 0.15, 0.13], "start": 0.0, "end": 5.2}, {"box": [0.03, 0.55, 0.19, 0.20], "start": 4.9, "end": 8.2}],
+              "s25": [{"box": [0.07, 0.58, 0.09, 0.09], "start": 0.4, "end": 3.2}, {"box": [0.03, 0.57, 0.16, 0.18], "start": 4.9, "end": 8.2}],  # ô nhỏ, né tay Pum
               "s30": [{"box": [0.225, 0.43, 0.06, 0.06], "start": 0.0, "end": 4.4}],
               "lt_caphe_1": [{"box": [0.74, 0.0, 0.25, 0.21], "start": 0.0, "end": 1.6}],  # mặt người làm ở xưởng (chấm TikTok)
               "s135": [{"box": [0.0, 0.78, 1.0, 0.22], "start": 2.0, "end": 3.3}],  # máy lia xuống quán đông người
-              "s138": [{"box": [0.50, 0.37, 0.13, 0.10], "start": 1.3, "end": 4.2}],  # biển xe máy sau lưng Pum
+              "s138": [{"box": [0.525, 0.38, 0.08, 0.09], "start": 4.0, "end": 5.0}],  # biển xe máy sau lưng Pum (hiện ở cuối cảnh)
+              "s22": [{"box": [0.0, 0.12, 0.13, 0.36], "start": 0.0, "end": 2.0}],  # cô gái lạ ở mép trái quán bánh canh
               "s33": [{"box": [0.91, 0.39, 0.08, 0.09], "start": 14.7, "end": 15.8}, {"box": [0.83, 0.39, 0.09, 0.09], "start": 15.4, "end": 16.6}],
               "s61": [{"box": [0.01, 0.48, 0.13, 0.09], "start": 0.0, "end": 1.3}, {"box": [0.14, 0.47, 0.12, 0.08], "start": 1.0, "end": 4.0}],
               "s139": [{"box": [0.83, 0.47, 0.14, 0.11], "start": 0.0, "end": 5.0}],
